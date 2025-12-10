@@ -14,9 +14,10 @@ let (++) (a: String) (b: String): String
 let splitBy (delim: String) (value: String)  : [String]
 
 #[export]
-let toList (value: String) = 
+let toList value = 
   splitBy "" value
 
 #[export]
 let size value =
   List.length (toList value)
+
