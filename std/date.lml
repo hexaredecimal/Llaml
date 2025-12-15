@@ -1,0 +1,26 @@
+
+open Std.Adt.Result (Result)
+
+
+#[export]
+type Date = {
+  year: Number,
+  month: Number,
+  day: Number,
+  hour: Number,
+  minute: Number,
+  seconds: Number
+}
+
+#[extern("Date.now"), export]
+let now () : Number
+
+#[extern("__rml_get_date"), export]
+let getCurrentDate () : Date
+
+#[extern("__rml_parse_date"), export]
+let parseDate (str: String) : Result Date String
+
+#[extern("new Date"), export]
+let fromTimeStamp (timeStamp: Number) : Date
+
