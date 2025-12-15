@@ -408,3 +408,31 @@ function __rml_prompt(message) {
     return std.in.getline();
 }
 
+// Date and Time
+const __rml_get_date = () => {
+  const dt = new Date();
+  return {
+    year: dt.getFullYear(),
+    month: dt.getMonth(),
+    day: dt.getDate(),
+    hour: dt.getHours(),
+    minute: dt.getMinutes(),
+    seconds: dt.getSeconds(),
+  }
+}
+
+const __rml_parse_date = (str) => {
+  let dt = Date.parse(str);
+  if (Number.isNaN(dt)) return new Err("Invalid date string");
+  
+  dt = new Date(dt);
+  return new Ok({
+    year: dt.getFullYear(),
+    month: dt.getMonth(),
+    day: dt.getDate(),
+    hour: dt.getHours(),
+    minute: dt.getMinutes(),
+    seconds: dt.getSeconds(),
+  });
+}
+
