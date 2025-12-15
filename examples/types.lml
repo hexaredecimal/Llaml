@@ -1,4 +1,6 @@
 
+open Std.String ((++))
+
 // Explicit
 let f x: Number = x
 
