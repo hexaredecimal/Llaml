@@ -1129,7 +1129,7 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
             var newEnv = _.clone(env);
 
             // Helper function to handle pattern binding recursively  
-            var handlePatternBinding = function (pattern, expectedType, env, nonGeneric) {
+            var handlePatternBinding = function (pattern, expectedType, penv, nonGeneric) {
                 pattern.accept({
                     visitNumber: function () {
                         unify(expectedType, new t.NumberType(), pattern);
@@ -1147,13 +1147,13 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
                         // OCaml convention: uppercase = constructor, lowercase = binding  
                         if (pattern.value[0] === pattern.value[0].toUpperCase()) {
                             // Constructor with 0 args  
-                            var tagType = env[pattern.value];
+                            var tagType = penv[pattern.value];
                             if (!tagType)
                                 errors.reportError(pattern.filename, pattern.lineno, pattern.column, "Couldn't find constructor: " + pattern.value)
                             unify(expectedType, _.last(t.prune(tagType).types).fresh(nonGeneric), pattern);
                         } else {
                             // Variable binding  
-                            env[pattern.value] = expectedType;
+                            penv[pattern.value] = expectedType;
                             nonGeneric.push(expectedType);
                         }
                     },
@@ -1162,7 +1162,7 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
                         var elemType = new t.Variable();
                         unify(expectedType, new t.ArrayType(elemType), pattern);
                         _.each(pattern.values, function (elemPattern) {
-                            handlePatternBinding(elemPattern, elemType, env, nonGeneric);
+                            handlePatternBinding(elemPattern, elemType, penv, nonGeneric);
                         });
                     },
                     visitTuple: function () {
@@ -1173,14 +1173,14 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
                         
                         _.each(pattern.values, function (elemPattern, i) {  
                             var elemType = t.prune(tupleType.types[i]);  
-                            handlePatternBinding(elemPattern, elemType, env, nonGeneric);  
+                            handlePatternBinding(elemPattern, elemType, penv, nonGeneric);  
                         });  
                     },
                     visitObject: function () {
                         var propTypes = {};
                         for (var key in pattern.values) {
                             propTypes[key] = new t.Variable();
-                            handlePatternBinding(pattern.values[key], propTypes[key], env, nonGeneric);
+                            handlePatternBinding(pattern.values[key], propTypes[key], penv, nonGeneric);
                         }
                         unify(expectedType, new t.ObjectType(propTypes), pattern);
                     },
@@ -1190,13 +1190,13 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
                         
                         // Process all elements except the last as individual elements  
                         _.each(pattern.patterns.slice(0, -1), function (elemPattern) {  
-                            handlePatternBinding(elemPattern, elemType, env, nonGeneric);  
+                            handlePatternBinding(elemPattern, elemType, penv, nonGeneric);  
                         });  
                         
                         // The last element represents the rest of the list (tail)  
                         if (pattern.patterns.length > 0) {  
                             var lastPattern = pattern.patterns[pattern.patterns.length - 1];  
-                            handlePatternBinding(lastPattern, new t.ArrayType(elemType), env, nonGeneric);  
+                            handlePatternBinding(lastPattern, new t.ArrayType(elemType), penv, nonGeneric);  
                         } 
                     },
                     visitPattern: function () {
@@ -1207,13 +1207,13 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
 
                         // Handle variable binding (lowercase identifier with no args)  
                         if (pattern.vars.length === 0 && pattern.tag[0] === pattern.tag[0].toLowerCase()) {
-                            env[pattern.tag] = expectedType;
+                            penv[pattern.tag] = expectedType;
                             nonGeneric.push(expectedType);
                             return;
                         }
 
                         // Handle constructor pattern (uppercase identifier)  
-                        var tagType = env[pattern.tag];
+                        var tagType = penv[pattern.tag];
                         if (!tagType) {
                             errors.reportError(pattern.filename, pattern.lineno, pattern.column, "Couldn't find type tag: " + pattern.value)
                         }
@@ -1222,8 +1222,8 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
 
                         // Process constructor arguments  
                         _.each(pattern.vars, function (v, i) {
-                            var argType = env[pattern.tag][i];
-                            handlePatternBinding(v, argType, env, nonGeneric);
+                            var argType = penv[pattern.tag].types[i];
+                            handlePatternBinding(v, argType, penv, nonGeneric);
                         });
                     }
                 });
@@ -1280,6 +1280,21 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
             if (env[node.value]) {
                 return env[node.value].fresh(nonGeneric);
             }
+
+            // NOTE: This patch is meant to work more like a bandage, just a
+            // temporary fix.... or is it? we'll never know
+            // This patch solves the issue tracked in issue #3
+            // https://github.com/hexaredecimal/Llaml/issues/3#issue-3713842843
+            errors.reportWarning(
+               node.filename,
+               node.lineno,
+               node.column, 
+               `Warning: Usage of an undefined symbol "${node.value}"`
+                + `the code will compile and your missing symbol will be treated as a`
+                + ` value of type "Any".\nIt is your job to make sure your unknown symbol`
+                + ` is present at runtime`
+            );
+
             return new t.NativeType();
         },
         // #### Primitive type
