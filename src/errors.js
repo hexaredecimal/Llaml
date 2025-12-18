@@ -25,8 +25,7 @@ var getFileContents = function(filename) {
 };
 
 
-
-var reportError = function (filename, line, column,  message) {
+const printErr = function (filename, line, column,  message, die = true) {
   console.error(filename + ":" + (line + 1) + ":" + column + " : " + message);
   if (filename != "stdin") {
     var code = getFileContents(filename);
@@ -45,8 +44,19 @@ var reportError = function (filename, line, column,  message) {
       snippet = code.split("\n")[line+1];
       console.error((line + 1) + " | ", snippet);
     }
-    process.exit(1);
-  }
-};
 
+    if (die)
+      process.exit(1);
+  }
+}
+
+var reportError = function (filename, line, column,  message) {
+  printErr(filename, line, column, message, true);
+};
 exports.reportError = reportError;
+
+
+var reportWarning = function (filename, line, column,  message) {
+  printErr(filename, line, column, message, false);
+};
+exports.reportWarning = reportWarning;
