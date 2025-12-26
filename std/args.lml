@@ -1,6 +1,6 @@
 
 
-#[extern("__rml_string_get_args"), export]
+#[extern("__rml_get_args"), export]
 let getArgs () : [String]
 
 
