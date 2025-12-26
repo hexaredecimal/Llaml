@@ -65,4 +65,7 @@ let joinBy delim list =
    | h:rest = 
      from h ++ delim ++ joinBy delim rest
 
+#[export]
+let fromValue a = a:[]
+
 
