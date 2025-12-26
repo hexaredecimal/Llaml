@@ -77,11 +77,7 @@ const __rml_sys_list_add = (value, list) => {
     return  [value, ...list];
 }
 
-const __rml_sys_list_reduce = (func, def, list) => {
-    return list.reduce(func, def);
-}
-
-function __rml_string_get_args() {
+function __rml_get_args() {
   return scriptArgs;
 }
 
