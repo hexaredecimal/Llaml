@@ -546,7 +546,6 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
 
                         const funcs = exportedSymbols[liftedId];
                         if (isOperator(liftedId)) {
-                          console.log(funcs);
                           _.each(funcs, function(func) {
                             mergeOperator(env, liftedId, func);
                           });
@@ -1305,9 +1304,9 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
                node.filename,
                node.lineno,
                node.column, 
-               `Warning: Usage of an undefined symbol "${node.value}"`
+               `Warning: Usage of an undefined symbol "${node.value}". `
                 + `the code will compile and your missing symbol will be treated as a`
-                + ` value of type "Any".\nIt is your job to make sure your unknown symbol`
+                + ` value of type "Any". It is your job to make sure your unknown symbol`
                 + ` is present at runtime`
             );
 
