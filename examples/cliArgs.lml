@@ -1,0 +1,16 @@
+
+open Std.Printf
+open Std.Pipe ((|>))
+open Std.Args (getArgs)
+open Std.List
+open Std.String
+
+let main () =
+  let
+    args = getArgs ()
+  in 
+    args
+     |> List.map (\x -> String.size x)
+     |> Printf.println
+
+
