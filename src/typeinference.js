@@ -434,7 +434,28 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
                     return operatorChars.includes(c);
                 });
             };
-            
+
+            const mergeOperator = (env, operatorName, overload) => {  
+                const argCount = overload.types.length - 1;  
+                const tableKey = argCount === 1 ? 'unary' : argCount === 2 ? 'binary' : null;  
+                  
+                if (!tableKey) return;  
+                  
+                if (!env.$operators[tableKey][operatorName]) {  
+                    env.$operators[tableKey][operatorName] = [];  
+                }  
+                  
+                // Check if this exact overload already exists  
+                const typeSignature = overload.types.map(t => t.toString()).join('_');  
+                const exists = env.$operators[tableKey][operatorName].some(existing =>   
+                    existing.types.map(t => t.toString()).join('_') === typeSignature  
+                );  
+                  
+                if (!exists) {  
+                    env.$operators[tableKey][operatorName].push(overload);  
+                }  
+            };
+
             const getExports = (body, moduleEnv) => {  
                 let exportedSymbols = {};    
                 _.each(body, function(astNode) {    
@@ -521,8 +542,17 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
                                 node.column,    
                                 "Symbol '" + liftedId + "' is not exported from module " + modulePath    
                             );    
-                        }    
-                        env[liftedId] = exportedSymbols[liftedId];  
+                        }
+
+                        const funcs = exportedSymbols[liftedId];
+                        if (isOperator(liftedId)) {
+                          console.log(funcs);
+                          _.each(funcs, function(func) {
+                            mergeOperator(env, liftedId, func);
+                          });
+                        } else {
+                          env[liftedId] = funcs;
+                        }
                     });  
                     
                     var moduleName = node.path[node.path.length - 1];  
@@ -604,14 +634,7 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
                         var overloads = exportedSymbols[liftedId];  
                         
                         _.each(overloads, function(overload) {  
-                            var argCount = overload.types.length - 1;  
-                            var tableKey = argCount === 1 ? 'unary' : argCount === 2 ? 'binary' : null;  
-                            if (tableKey) {  
-                                if (!env.$operators[tableKey][liftedId]) {  
-                                    env.$operators[tableKey][liftedId] = [];  
-                                }  
-                                env.$operators[tableKey][liftedId].push(overload);  
-                            }  
+                            mergeOperator(env, liftedId, overload);
                         });  
                     } else {
                         const symbol = exportedSymbols[liftedId];  
@@ -631,15 +654,7 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
                     if (isOperator(symbolName)) {
                         if (Array.isArray(symbolType)) {  
                             _.each(symbolType, function(overload) {  
-                                var argCount = overload.types.length - 1;  
-                                var tableKey = argCount === 1 ? 'unary' : argCount === 2 ? 'binary' : null;  
-                                
-                                if (tableKey) {  
-                                    if (!env.$operators[tableKey][symbolName]) {  
-                                        env.$operators[tableKey][symbolName] = [];  
-                                    }  
-                                    env.$operators[tableKey][symbolName].push(overload);  
-                                }  
+                                mergeOperator(env, symbolName, overload);
                             });  
                         }  
                     }  
@@ -814,6 +829,7 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
                     }
                 });
             }
+            
 
             if (isOperator && env.$operators) {
                 var tableKey = types.length === 1 ? 'unary' : types.length === 2 ? 'binary' : null;
