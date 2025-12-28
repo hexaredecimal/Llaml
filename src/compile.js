@@ -1198,7 +1198,20 @@ var compileNodeWithEnvToJsAST = function (n, env, opts) {
                     callee: result  
                 };  
             }  
-        
+            let funcName = n.func.value;  
+            let funcType = env[funcName];  
+            let isConstructor = funcType && funcType instanceof types.FunctionType &&   
+                              funcType.types.length > 0 &&   
+                              _.last(funcType.types) instanceof types.TagType;  
+          
+            // For constructors, call with all arguments at once  
+            if (isConstructor) {  
+                return {  
+                    type: "CallExpression",  
+                    "arguments": args,  
+                    callee: result  
+                };  
+            }  
 
             _.each(args, function (arg) {
                 result = {
