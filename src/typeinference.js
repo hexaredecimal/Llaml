@@ -663,12 +663,18 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
             return new t.UnitType();  
         },
         visitFunction: function () {
+            const isOperator = (name) => {
+                const operatorChars = '+-*/%<>=!|&?@:';
+                return name.split('').every(function (c) {
+                    return operatorChars.includes(c);
+                });
+            };
 
-            var newNonGeneric = nonGeneric.slice();
-            var newEnv = _.clone(env);
+            let newNonGeneric = nonGeneric.slice();
+            let newEnv = _.clone(env);
 
-            var funcTypeAndNonGenerics = createTemporaryFunctionType(node);
-            var funcType = funcTypeAndNonGenerics[0];
+            let funcTypeAndNonGenerics = createTemporaryFunctionType(node);
+            let funcType = funcTypeAndNonGenerics[0];
 
             if (node.type) {
                 var returnTypeAnnotation = nodeToType(node.type, env, aliases);
@@ -678,8 +684,21 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
 
             newNonGeneric = newNonGeneric.concat(funcTypeAndNonGenerics[1]);
 
-
-            var functionConstraints = [];
+            let functionConstraints = [];
+            
+            if (node.name && isOperator(node.name)) {
+                const argCount = funcType.types.length - 1; // Last type is return type  
+                const tableKey = argCount === 1 ? 'unary' : argCount === 2 ? 'binary' : null;  
+                  
+                if (!tableKey) {
+                } else if (!newEnv.$operators[tableKey][node.name.g]) {  
+                    newEnv.$operators[tableKey][node.name.g] = [];  
+                    newEnv.$operators[tableKey][node.name.g].push(funcType);  
+                } else newEnv.$operators[tableKey][node.name.g].push(funcType);  
+            } else if (node.name){
+              // TODO: Construct a correct function type
+              newEnv[node.name] = new t.NativeType();;
+            }
             var functionType = analyseFunction(node, funcType, newEnv, newNonGeneric, aliases, functionConstraints);
             if (node.type) {
                 var returnTypeAnnotation = nodeToType(node.type, env, aliases);
@@ -691,8 +710,7 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
             }
 
 
-            var operatorChars = '+-*/%<>=!|&?@:';
-            if (node.name && operatorChars.includes(node.name[0])) {
+            if (node.name && isOperator(node.name)) {
                 var argCount = functionType.types.length - 1; // Last type is return type  
 
                 if (argCount == 0 || argCount > 2) {
@@ -752,7 +770,7 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
                 functionType.typeClasses.push(instance);
             });
 
-            if (node.name && !operatorChars.includes(node.name[0])) {
+            if (node.name && !isOperator(node.name)) {
                 if (env[node.name]) {
                     errors.reportError(
                         node.filename,
@@ -1292,7 +1310,7 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
         // environment, otherwise throws an error.
         visitIdentifier: function () {
             // Regular identifier lookup  
-            if (env[node.value]) {
+            if (env[node.value]) { 
                 return env[node.value].fresh(nonGeneric);
             }
 
