@@ -1,7 +1,7 @@
 var unicode = require('unicode-categories'),
-    _ = require('underscore');
+  _ = require('underscore');
 
-var errors = require("./errors.js");
+var errors = require('./errors.js');
 
 // http://es5.github.com/#x7.6
 // ECMAscript identifier starts with `$`, `_`,
@@ -10,10 +10,11 @@ var errors = require("./errors.js");
 // Roy identifier cannot have letter u03BB (greek lowercase lambda)
 // because it's used in anonymous functions.
 var IDENTIFIER = new RegExp(
-    unicode.ECMA.identifier.source.replace('\\u03BB', '')
+  unicode.ECMA.identifier.source.replace('\\u03BB', ''),
 );
 
-var NUMBER = /^(?:0[xX][0-9a-fA-F_]+|0[oO][0-7_]+|0[bB][01_]+|[0-9][0-9_]*(?:\.[0-9_]+)?(?:[eE][\-\+]?[0-9_]+)?)/;
+var NUMBER =
+  /^(?:0[xX][0-9a-fA-F_]+|0[oO][0-7_]+|0[bB][01_]+|[0-9][0-9_]*(?:\.[0-9_]+)?(?:[eE][\-\+]?[0-9_]+)?)/;
 var STRING = /^"(?:[^"\\]|\\[\s\S])*"/;
 var WHITESPACE = /^[^\n\S]+/;
 var INDENT = /^(?:\n[^\n\S]*)+/;
@@ -22,21 +23,21 @@ var SHEBANG = /^#!.*/;
 var COMMENT = /^\/\/.*|^\/\*[\s\S]*?\*\//;
 
 var keywordTokens = {
-    'true': 'BOOLEAN',
-    'false': 'BOOLEAN',
-    'let': 'LET',
-    'if': 'IF',
-    'then': 'THEN',
-    'else': 'ELSE',
-    'type': 'TYPE',
-    'when': 'MATCH',
-    'is': 'IS',
-    'case': 'CASE',
-    'with': 'WITH',
-    'where': 'WHERE',
-    'open': 'OPEN',
-    'in': 'IN',
-    'function': 'FUNCTION'
+  true: 'BOOLEAN',
+  false: 'BOOLEAN',
+  let: 'LET',
+  if: 'IF',
+  then: 'THEN',
+  else: 'ELSE',
+  type: 'TYPE',
+  when: 'MATCH',
+  is: 'IS',
+  case: 'CASE',
+  with: 'WITH',
+  where: 'WHERE',
+  open: 'OPEN',
+  in: 'IN',
+  function: 'FUNCTION',
 };
 
 var indent;
@@ -45,201 +46,229 @@ var tokens;
 var lineno;
 var column;
 
-
 var identifierToken = function (chunk) {
-    var token = IDENTIFIER.exec(chunk);
+  var token = IDENTIFIER.exec(chunk);
 
-    if (token) {
-        var value = token[0],
-            name = keywordTokens[value] || 'IDENTIFIER';
+  if (token) {
+    var value = token[0],
+      name = keywordTokens[value] || 'IDENTIFIER';
 
-        tokens.push([name, value, lineno, column]);
-        column += token[0].length;
-        return token[0].length;
-    }
-    return 0;
+    tokens.push([name, value, lineno, column]);
+    column += token[0].length;
+    return token[0].length;
+  }
+  return 0;
 };
 
 var numberToken = function (chunk) {
-    var token = NUMBER.exec(chunk);
-    if (token) {
-        tokens.push(['NUMBER', token[0], lineno, column]);
-        column += token[0].length;
-        return token[0].length;
-    }
-    return 0;
+  var token = NUMBER.exec(chunk);
+  if (token) {
+    tokens.push(['NUMBER', token[0], lineno, column]);
+    column += token[0].length;
+    return token[0].length;
+  }
+  return 0;
 };
 
 var stringToken = function (chunk) {
-    var token = STRING.exec(chunk);
-    if (token) {
-        tokens.push(['STRING', token[0].replaceAll("\"", "`"), lineno, column]);
-        column += token[0].length;
-        return token[0].length;
-
-    }
-    return 0;
+  var token = STRING.exec(chunk);
+  if (token) {
+    tokens.push(['STRING', token[0].replaceAll('"', '`'), lineno, column]);
+    column += token[0].length;
+    return token[0].length;
+  }
+  return 0;
 };
 
 var genericToken = function (chunk) {
-    var token = GENERIC.exec(chunk);
-    if (token) {
-        tokens.push(['GENERIC', token[1], lineno, column]);
-        column += token[0].length;
-        return token[0].length;
-    }
-    return 0;
+  var token = GENERIC.exec(chunk);
+  if (token) {
+    tokens.push(['GENERIC', token[1], lineno, column]);
+    column += token[0].length;
+    return token[0].length;
+  }
+  return 0;
 };
 
 var commentToken = function (chunk) {
-    var token = COMMENT.exec(chunk);
-    if (token) {
-        tokens.push(['COMMENT', token[0], lineno, column]);
-        column += token[0].length;
-        return token[0].length;
-    }
-    return 0;
+  var token = COMMENT.exec(chunk);
+  if (token) {
+    tokens.push(['COMMENT', token[0], lineno, column]);
+    column += token[0].length;
+    return token[0].length;
+  }
+  return 0;
 };
 
-
 var whitespaceToken = function (chunk) {
-    var token = WHITESPACE.exec(chunk);
-    if (token) {
-        column += token[0].length;
-        return token[0].length;
-    }
-    return 0;
+  var token = WHITESPACE.exec(chunk);
+  if (token) {
+    column += token[0].length;
+    return token[0].length;
+  }
+  return 0;
 };
 
 // If an OUTDENT is followed by a line continuer,
 // the next TERMINATOR token is supressed.
 var lineContinuer = {
-    "where": true
+  where: true,
 };
 
 var lineToken = function (chunk) {
-    var token = INDENT.exec(chunk);
-    if (token) {
-        column += token[0].length;
-        return token[0].length;  // Just consume, don't generate tokens  
-    }
-    return 0;
+  var token = INDENT.exec(chunk);
+  if (token) {
+    column += token[0].length;
+    return token[0].length; // Just consume, don't generate tokens
+  }
+  return 0;
 };
 
 var literalToken = function (chunk) {
-    var operatorChars = '+-*/%<>=!|&#?@:\\'; 
-    var i = 0;  
-  
-    if (chunk[0] == '(' || chunk[0] == ')' 
-     || chunk[0] == '{' || chunk[0] == '}' 
-     || chunk[0] == '[' || chunk[0] == ']' 
-     || chunk[0] == "'"
-     || chunk[0] == ',' || chunk[0] == '.') {  
-        tokens.push([chunk[0], chunk[0], lineno, column]);  
-        column += 1;  
-        return 1;  
-    }  
-  
-    while (i < chunk.length && operatorChars.includes(chunk[i])) {  
-        i++;  
-    }  
-  
-    if (i === 0) return 0;  
-  
-    var op = chunk.slice(0, i);  
-  
-    var knownOps = {  
-        '>>': 'MATH', '<<': 'MATH',  
-        '>=': 'COMPARE', '<=': 'COMPARE', '==': 'COMPARE', '!=': 'COMPARE',  
-        '++': 'CONCAT',  
-        '||': 'BOOLOP', '&&': 'BOOLOP',  
-        '->': 'RIGHTARROW', '<-': 'LEFTARROW',
-        '\\': 'LAMBDA',
-    };  
-  
-    if (knownOps[op]) {  
-        tokens.push([knownOps[op], op, lineno, column]);  
-        column += op.length;  
-        return op.length;  
-    }  
-  
-    var singleCharOps = {  
-        '<': 'COMPARE', '>': 'COMPARE',  
-        '*': 'MATH', '/': 'MATH', '%': 'MATH'
-    };  
-  
-    if (i === 1 && singleCharOps[op]) {  
-        tokens.push([singleCharOps[op], op, lineno, column]);  
-        column += op.length;  
-        return op.length;  
-    }  
-  
-    if (i > 1) {  
-        tokens.push(['OPERATOR', op, lineno, column]);  
-        column += i;  
-        return i;  
-    }  
-  
-    tokens.push([op, op, lineno, column]);  
-    column += 1;  
-    return 1;  
+  var operatorChars = '+-*/%<>=!|&#?@:\\';
+  var i = 0;
+
+  if (
+    chunk[0] == '(' ||
+    chunk[0] == ')' ||
+    chunk[0] == '{' ||
+    chunk[0] == '}' ||
+    chunk[0] == '[' ||
+    chunk[0] == ']' ||
+    chunk[0] == "'" ||
+    chunk[0] == ',' ||
+    chunk[0] == '.'
+  ) {
+    tokens.push([chunk[0], chunk[0], lineno, column]);
+    column += 1;
+    return 1;
+  }
+
+  while (i < chunk.length && operatorChars.includes(chunk[i])) {
+    i++;
+  }
+
+  if (i === 0) return 0;
+
+  var op = chunk.slice(0, i);
+
+  var knownOps = {
+    '>>': 'MATH',
+    '<<': 'MATH',
+    '>=': 'COMPARE',
+    '<=': 'COMPARE',
+    '==': 'COMPARE',
+    '!=': 'COMPARE',
+    '++': 'CONCAT',
+    '||': 'BOOLOP',
+    '&&': 'BOOLOP',
+    '->': 'RIGHTARROW',
+    '<-': 'LEFTARROW',
+    '\\': 'LAMBDA',
+  };
+
+  if (knownOps[op]) {
+    tokens.push([knownOps[op], op, lineno, column]);
+    column += op.length;
+    return op.length;
+  }
+
+  var singleCharOps = {
+    '<': 'COMPARE',
+    '>': 'COMPARE',
+    '*': 'MATH',
+    '/': 'MATH',
+    '%': 'MATH',
+  };
+
+  if (i === 1 && singleCharOps[op]) {
+    tokens.push([singleCharOps[op], op, lineno, column]);
+    column += op.length;
+    return op.length;
+  }
+
+  if (i > 1) {
+    tokens.push(['OPERATOR', op, lineno, column]);
+    column += i;
+    return i;
+  }
+
+  tokens.push([op, op, lineno, column]);
+  column += 1;
+  return 1;
 };
 
 var shebangToken = function (chunk) {
-    var token = SHEBANG.exec(chunk);
-    if (token) {
-        tokens.push(['SHEBANG', token[0], lineno, column]);
-        column += 1;
-        return token[0].length;
-    }
-    return 0;
+  var token = SHEBANG.exec(chunk);
+  if (token) {
+    tokens.push(['SHEBANG', token[0], lineno, column]);
+    column += 1;
+    return token[0].length;
+  }
+  return 0;
 };
 
-
-
 var tokenise = function (source, tokenizers) {
-    /*jshint boss:true*/
-    var i = 0, chunk;
+  /*jshint boss:true*/
+  var i = 0,
+    chunk;
 
-    function getDiff(chunk) {
-        return _.foldl(tokenizers, function (diff, tokenizer) {
-            return diff ? diff : tokenizer.apply(tokenizer, [chunk]);
-        }, 0);
+  function getDiff(chunk) {
+    return _.foldl(
+      tokenizers,
+      function (diff, tokenizer) {
+        return diff ? diff : tokenizer.apply(tokenizer, [chunk]);
+      },
+      0,
+    );
+  }
+
+  while ((chunk = source.slice(i))) {
+    var diff = getDiff(chunk);
+    if (!diff) {
+      throw (
+        "Couldn't tokenise: " +
+        chunk.substring(
+          0,
+          chunk.indexOf('\n') > -1 ? chunk.indexOf('\n') : chunk.length,
+        )
+      );
     }
-
-    while (chunk = source.slice(i)) {
-        var diff = getDiff(chunk);
-        if (!diff) {
-            throw "Couldn't tokenise: " + chunk.substring(0, chunk.indexOf("\n") > -1 ? chunk.indexOf("\n") : chunk.length);
-        }
-        var newlines = source.slice(i, i + diff).split('\n').length - 1;
-        lineno += newlines;
-        if (newlines > 0) {
-            column = 1; // Reset column when newline detected  
-        }
-        i += diff;
+    var newlines = source.slice(i, i + diff).split('\n').length - 1;
+    lineno += newlines;
+    if (newlines > 0) {
+      column = 1; // Reset column when newline detected
     }
+    i += diff;
+  }
 
-    return tokens;
+  return tokens;
 };
 
 exports.tokenise = function (source, opts) {
-    indent = 0;
-    indents = [];
-    tokens = [];
-    lineno = 0;
-    opts = opts || { filename: "stdin" };
-    column = 1;
+  indent = 0;
+  indents = [];
+  tokens = [];
+  lineno = 0;
+  opts = opts || { filename: 'stdin' };
+  column = 1;
 
-    try {
-        let tokens = tokenise(source, [identifierToken, numberToken,
-            stringToken, genericToken, commentToken, whitespaceToken,
-            lineToken, literalToken, shebangToken]
-        ).concat([['EOF', '', lineno, column]]);
-        return tokens;
-    } catch (e) {
-        // lexerError(e, opts.filename);
-        console.log(tokens)
-        errors.reportError(opts.filename, lineno, column, e);
-    }
+  try {
+    let tokens = tokenise(source, [
+      identifierToken,
+      numberToken,
+      stringToken,
+      genericToken,
+      commentToken,
+      whitespaceToken,
+      lineToken,
+      literalToken,
+      shebangToken,
+    ]).concat([['EOF', '', lineno, column]]);
+    return tokens;
+  } catch (e) {
+    // lexerError(e, opts.filename);
+    console.log(tokens);
+    errors.reportError(opts.filename, lineno, column, e);
+  }
 };

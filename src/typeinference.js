@@ -7,14 +7,14 @@
 
 // Type variable and built-in types are defined in the `types` module.
 var t = require('./types'),
-    n = require('./nodes').nodes,
-    lexer = require('./lexer'),
-    parser = require('../lib/parser').parser,
-    _ = require('underscore'),
-    getFreeVariables = require('./freeVariables').getFreeVariables,
-    stronglyConnectedComponents = require('./tarjan').stronglyConnectedComponents;
+  n = require('./nodes').nodes,
+  lexer = require('./lexer'),
+  parser = require('../lib/parser').parser,
+  _ = require('underscore'),
+  getFreeVariables = require('./freeVariables').getFreeVariables,
+  stronglyConnectedComponents = require('./tarjan').stronglyConnectedComponents;
 
-var errors = require("./errors.js");
+var errors = require('./errors.js');
 
 var currentFile = null;
 // ### Unification
@@ -33,1550 +33,1852 @@ var currentFile = null;
 //
 // If neither constraint can be met, the process will throw an error message.
 var unify = function (t1, t2, node, die = true) {
-    var alias = t1.aliased || t2.aliased;
-    var i;
-    t1 = t.prune(t1);
-    t2 = t.prune(t2);
-    if (t1 instanceof t.Variable) {
-        if (t1 != t2) {
-            if (t.occursInType(t1, t2)) {
-                errors.reportError(node.filename, node.lineno, node.column, "Recursive unification");
-            }
-            t1.instance = t2;
-        }
-    } else if (t1 instanceof t.BaseType && t2 instanceof t.Variable) {
-        unify(t2, t1, node);
-    } else if (t1 instanceof t.NativeType || t2 instanceof t.NativeType) {
-        // do nothing.
-        // coercing Native to any type.
-    } else if (t1 instanceof t.BaseType && t2 instanceof t.BaseType) {
-        var t1str = t1.aliased || t1.toString();
-        var t2str = t2.aliased || t2.toString();
-
-
-        if (t1.name != t2.name || t1.types.length != t2.types.length) {
-            const errorMessage = "Type error: " + t1str + " is not " + t2str;
-            if (!die) throw errorMessage;
-            errors.reportError(node.filename, node.lineno, node.column, errorMessage);
-        }
-        if (t1 instanceof t.ObjectType) {
-            for (i in t2.props) {
-                if (!(i in t1.props)) {
-                    const errorMessage = "Type error: " + + ": " + t1str + " is not " + t2str;
-                    if (!die) throw errorMessage;
-                    errors.reportError(node.filename, node.lineno, node.column, errorMessage);
-                }
-                unify(t1.props[i], t2.props[i], node);
-            }
-        }
-        for (i = 0; i < t1.types.length; i++) {
-            unify(t1.types[i], t2.types[i], node);
-        }
-        if (alias) t1.aliased = t2.aliased = alias;
+  var alias = t1.aliased || t2.aliased;
+  var i;
+  t1 = t.prune(t1);
+  t2 = t.prune(t2);
+  if (t1 instanceof t.Variable) {
+    if (t1 != t2) {
+      if (t.occursInType(t1, t2)) {
+        errors.reportError(
+          node.filename,
+          node.lineno,
+          node.column,
+          'Recursive unification',
+        );
+      }
+      t1.instance = t2;
     }
-    else {
-        const errorMessage = "Type error: Not unified: " + t1 + ", " + t2;
-        if (!die) throw errorMessage;
-        errors.reportError(node.filename, node.lineno, node.column, errorMessage);
+  } else if (t1 instanceof t.BaseType && t2 instanceof t.Variable) {
+    unify(t2, t1, node);
+  } else if (t1 instanceof t.NativeType || t2 instanceof t.NativeType) {
+    // do nothing.
+    // coercing Native to any type.
+  } else if (t1 instanceof t.BaseType && t2 instanceof t.BaseType) {
+    var t1str = t1.aliased || t1.toString();
+    var t2str = t2.aliased || t2.toString();
+
+    if (t1.name != t2.name || t1.types.length != t2.types.length) {
+      const errorMessage = 'Type error: ' + t1str + ' is not ' + t2str;
+      if (!die) throw errorMessage;
+      errors.reportError(node.filename, node.lineno, node.column, errorMessage);
     }
+    if (t1 instanceof t.ObjectType) {
+      for (i in t2.props) {
+        if (!(i in t1.props)) {
+          const errorMessage =
+            'Type error: ' + +': ' + t1str + ' is not ' + t2str;
+          if (!die) throw errorMessage;
+          errors.reportError(
+            node.filename,
+            node.lineno,
+            node.column,
+            errorMessage,
+          );
+        }
+        unify(t1.props[i], t2.props[i], node);
+      }
+    }
+    for (i = 0; i < t1.types.length; i++) {
+      unify(t1.types[i], t2.types[i], node);
+    }
+    if (alias) t1.aliased = t2.aliased = alias;
+  } else {
+    const errorMessage = 'Type error: Not unified: ' + t1 + ', ' + t2;
+    if (!die) throw errorMessage;
+    errors.reportError(node.filename, node.lineno, node.column, errorMessage);
+  }
 };
 
 var flattenFunctionType = function (argTypes, resultType) {
-    var types = argTypes.slice();
+  var types = argTypes.slice();
 
-    var currentType = resultType;
-    while (t.prune(currentType) instanceof t.FunctionType) {
-        var prunedType = t.prune(currentType);
-        for (var i = 0; i < prunedType.types.length - 1; i++) {
-            types.push(prunedType.types[i]);
-        }
-        currentType = prunedType.types[prunedType.types.length - 1];
+  var currentType = resultType;
+  while (t.prune(currentType) instanceof t.FunctionType) {
+    var prunedType = t.prune(currentType);
+    for (var i = 0; i < prunedType.types.length - 1; i++) {
+      types.push(prunedType.types[i]);
     }
-    types.push(currentType);
+    currentType = prunedType.types[prunedType.types.length - 1];
+  }
+  types.push(currentType);
 
-    return new t.FunctionType(types);
+  return new t.FunctionType(types);
 };
 
 function sanitizeTypeName(type) {
-    var typeStr = type.toString();
+  var typeStr = type.toString();
 
-    // Handle tuple types: (T1, T2, ...) -> tuple_T1_T2_...  
-    if (typeStr.match(/^\([^)]+\)$/)) {
-        var innerTypes = typeStr.slice(1, -1).split(',').map(function (t) {
-            return t.trim().replace(/[^a-zA-Z0-9]/g, '_');
-        }).join('_');
-        return 'tuple_' + innerTypes;
-    }
+  // Handle tuple types: (T1, T2, ...) -> tuple_T1_T2_...
+  if (typeStr.match(/^\([^)]+\)$/)) {
+    var innerTypes = typeStr
+      .slice(1, -1)
+      .split(',')
+      .map(function (t) {
+        return t.trim().replace(/[^a-zA-Z0-9]/g, '_');
+      })
+      .join('_');
+    return 'tuple_' + innerTypes;
+  }
 
-    // Handle array types: [T] -> array_T  
-    if (typeStr.match(/^\[.+\]$/)) {
-        var innerType = typeStr.slice(1, -1).trim().replace(/[^a-zA-Z0-9]/g, '_');
-        return 'array_' + innerType;
-    }
+  // Handle array types: [T] -> array_T
+  if (typeStr.match(/^\[.+\]$/)) {
+    var innerType = typeStr
+      .slice(1, -1)
+      .trim()
+      .replace(/[^a-zA-Z0-9]/g, '_');
+    return 'array_' + innerType;
+  }
 
-    // Handle object types: {x: T1, y: T2} -> object_x_T1_y_T2  
-    if (typeStr.match(/^\{.+\}$/)) {
-        var props = typeStr.slice(1, -1).split(',').map(function (prop) {
-            var parts = prop.split(':').map(function (p) { return p.trim(); });
-            return parts.join('_');
-        }).join('_');
-        return 'object_' + props.replace(/[^a-zA-Z0-9_]/g, '_');
-    }
+  // Handle object types: {x: T1, y: T2} -> object_x_T1_y_T2
+  if (typeStr.match(/^\{.+\}$/)) {
+    var props = typeStr
+      .slice(1, -1)
+      .split(',')
+      .map(function (prop) {
+        var parts = prop.split(':').map(function (p) {
+          return p.trim();
+        });
+        return parts.join('_');
+      })
+      .join('_');
+    return 'object_' + props.replace(/[^a-zA-Z0-9_]/g, '_');
+  }
 
-    // Default: just sanitize the string  
-    return typeStr.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
+  // Default: just sanitize the string
+  return typeStr.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
 }
 
 exports.sanitizeTypeName = sanitizeTypeName;
 function encodeOperatorName(opName) {
-    var encoding = {
-        '+': 'add',
-        '-': 'sub',
-        '*': 'mul',
-        '/': 'div',
-        '%': 'mod',
-        '<': 'lt',
-        '>': 'gt',
-        '=': 'eq',
-        '!': 'not',
-        '|': 'or',
-        '&': 'and',
-        '?': 'qmark',
-        '@': 'at',
-        ':': 'colon',
-        ';': 'semicolon',
-    };
+  var encoding = {
+    '+': 'add',
+    '-': 'sub',
+    '*': 'mul',
+    '/': 'div',
+    '%': 'mod',
+    '<': 'lt',
+    '>': 'gt',
+    '=': 'eq',
+    '!': 'not',
+    '|': 'or',
+    '&': 'and',
+    '?': 'qmark',
+    '@': 'at',
+    ':': 'colon',
+    ';': 'semicolon',
+  };
 
-    return opName.split('').map(function (c) {
-        return encoding[c] || c;
-    }).join('_');
+  return opName
+    .split('')
+    .map(function (c) {
+      return encoding[c] || c;
+    })
+    .join('_');
 }
 exports.encodeOperatorName = encodeOperatorName;
 
-
 // ### Helper functions for function definitions
 //
-var analyseFunction = function (functionDecl, funcType, env, nonGeneric, aliases, constraints) {
-    var types = [];
-    var newEnv = _.clone(env);
+var analyseFunction = function (
+  functionDecl,
+  funcType,
+  env,
+  nonGeneric,
+  aliases,
+  constraints,
+) {
+  var types = [];
+  var newEnv = _.clone(env);
 
-    var argNames = {};
-    _.each(functionDecl.args, function (arg, i) {
-        if (argNames[arg.name]) {
-            errors.reportError(functionDecl.filename, functionDecl.lineno, functionDecl.column, "Repeated function argument '" + arg.name + "'");
-        }
-
-        var argType;
-        if (arg.type) {
-            argType = nodeToType(arg.type, env, aliases);
-        } else {
-            argType = funcType.types[i];
-        }
-        newEnv[arg.name] = argType;
-        argNames[arg.name] = argType;
-        types.push(argType);
-    });
-
-    analyseWhereDataDecls(functionDecl.whereDecls, newEnv, nonGeneric, aliases, constraints);
-
-    var whereFunctionTypeMap =
-        analyseWhereFunctions(functionDecl.whereDecls, newEnv, nonGeneric, aliases, constraints);
-
-    for (var name in whereFunctionTypeMap) {
-        newEnv[name] = whereFunctionTypeMap[name];
+  var argNames = {};
+  _.each(functionDecl.args, function (arg, i) {
+    if (argNames[arg.name]) {
+      errors.reportError(
+        functionDecl.filename,
+        functionDecl.lineno,
+        functionDecl.column,
+        "Repeated function argument '" + arg.name + "'",
+      );
     }
 
-    var resultType;  
+    var argType;
+    if (arg.type) {
+      argType = nodeToType(arg.type, env, aliases);
+    } else {
+      argType = funcType.types[i];
+    }
+    newEnv[arg.name] = argType;
+    argNames[arg.name] = argType;
+    types.push(argType);
+  });
 
-    var retType = functionDecl.type;
-    let parent = functionDecl;
-    if ((functionDecl.name == undefined || functionDecl.name == null) && functionDecl.parent) {
-        while (parent.name == undefined) 
-          parent = parent.parent;
+  analyseWhereDataDecls(
+    functionDecl.whereDecls,
+    newEnv,
+    nonGeneric,
+    aliases,
+    constraints,
+  );
+
+  var whereFunctionTypeMap = analyseWhereFunctions(
+    functionDecl.whereDecls,
+    newEnv,
+    nonGeneric,
+    aliases,
+    constraints,
+  );
+
+  for (var name in whereFunctionTypeMap) {
+    newEnv[name] = whereFunctionTypeMap[name];
+  }
+
+  var resultType;
+
+  var retType = functionDecl.type;
+  let parent = functionDecl;
+  if (
+    (functionDecl.name == undefined || functionDecl.name == null) &&
+    functionDecl.parent
+  ) {
+    while (parent.name == undefined) parent = parent.parent;
+  }
+
+  if (!functionDecl.body[0]) {
+    let node = functionDecl;
+    while (node.lineno == undefined) node = node.parent;
+
+    // For functions without bodies, use the annotated return type
+    if (!parent.type) {
+      errors.reportError(
+        node.filename,
+        node.lineno,
+        node.column,
+        "Function '" +
+          (functionDecl.name || '<anonymous>') +
+          'has no body and no return type annotation',
+      );
+    }
+    resultType = nodeToType(parent.type, env, aliases);
+  } else {
+    var scopeTypes = _.map(
+      withoutComments(functionDecl.body),
+      function (expression) {
+        return analyse(expression, newEnv, nonGeneric, aliases, constraints);
+      },
+    );
+    resultType = scopeTypes[scopeTypes.length - 1];
+  }
+  var functionType = flattenFunctionType(types, resultType);
+
+  var annotationType;
+  if (functionDecl.type) {
+    annotationType = nodeToType(functionDecl.type, env, aliases);
+
+    // Unwrap resultType to get the final return type
+    var finalResultType = resultType;
+    while (t.prune(finalResultType) instanceof t.FunctionType) {
+      var prunedType = t.prune(finalResultType);
+      finalResultType = prunedType.types[prunedType.types.length - 1];
     }
 
-    if (!functionDecl.body[0]) {
-        let node = functionDecl;
-        while (node.lineno == undefined) 
-          node = node.parent;
-          
-        // For functions without bodies, use the annotated return type  
-        if (!parent.type) {  
-            errors.reportError(node.filename, node.lineno, node.column, "Function '" + (functionDecl.name || "<anonymous>" ) + "has no body and no return type annotation");
-        }  
-        resultType = nodeToType(parent.type, env, aliases);  
-    } else {  
-        var scopeTypes = _.map(withoutComments(functionDecl.body), function (expression) {  
-            return analyse(expression, newEnv, nonGeneric, aliases, constraints);  
-        });  
-        resultType = scopeTypes[scopeTypes.length - 1];  
-    }  
-    var functionType = flattenFunctionType(types, resultType);
+    unify(finalResultType, annotationType, functionDecl);
+  }
 
-    var annotationType;
-    if (functionDecl.type) {
-        annotationType = nodeToType(functionDecl.type, env, aliases);
-
-        // Unwrap resultType to get the final return type  
-        var finalResultType = resultType;
-        while (t.prune(finalResultType) instanceof t.FunctionType) {
-            var prunedType = t.prune(finalResultType);
-            finalResultType = prunedType.types[prunedType.types.length - 1];
-        }
-
-        unify(finalResultType, annotationType, functionDecl);
-    }
-
-    return functionType;
+  return functionType;
 };
 
-var analyseWhereFunctions = function (whereDecls, env, nonGeneric, aliases, constraints) {
-    var newEnv = _.clone(env);
+var analyseWhereFunctions = function (
+  whereDecls,
+  env,
+  nonGeneric,
+  aliases,
+  constraints,
+) {
+  var newEnv = _.clone(env);
 
-    var functionDecls = _.filter(whereDecls, function (whereDecl) {
-        return whereDecl instanceof n.Function;
+  var functionDecls = _.filter(whereDecls, function (whereDecl) {
+    return whereDecl instanceof n.Function;
+  });
+
+  var dependencyGraph = createDependencyGraph(functionDecls);
+
+  var components = stronglyConnectedComponents(dependencyGraph);
+
+  var functionTypes = {};
+
+  _.each(components, function (component) {
+    var newNonGeneric = nonGeneric.slice();
+
+    var functionDecls = _.map(component, function (vertex) {
+      return vertex.declaration;
     });
 
-    var dependencyGraph = createDependencyGraph(functionDecls);
+    _.each(functionDecls, function (functionDecl) {
+      var funcTypeAndNonGenerics = createTemporaryFunctionType(functionDecl);
+      var funcType = funcTypeAndNonGenerics[0];
 
-    var components = stronglyConnectedComponents(dependencyGraph);
+      newNonGeneric = newNonGeneric.concat(funcTypeAndNonGenerics[1]);
 
-    var functionTypes = {};
-
-    _.each(components, function (component) {
-        var newNonGeneric = nonGeneric.slice();
-
-        var functionDecls = _.map(component, function (vertex) {
-            return vertex.declaration;
-        });
-
-        _.each(functionDecls, function (functionDecl) {
-            var funcTypeAndNonGenerics = createTemporaryFunctionType(functionDecl);
-            var funcType = funcTypeAndNonGenerics[0];
-
-            newNonGeneric = newNonGeneric.concat(funcTypeAndNonGenerics[1]);
-
-            newEnv[functionDecl.name] = funcType;
-        });
-
-        _.each(functionDecls, function (functionDecl) {
-            var functionType = newEnv[functionDecl.name];
-
-            functionTypes[functionDecl.name] =
-                analyseFunction(functionDecl, functionType, newEnv, newNonGeneric, aliases);
-        });
+      newEnv[functionDecl.name] = funcType;
     });
 
-    return functionTypes;
+    _.each(functionDecls, function (functionDecl) {
+      var functionType = newEnv[functionDecl.name];
+
+      functionTypes[functionDecl.name] = analyseFunction(
+        functionDecl,
+        functionType,
+        newEnv,
+        newNonGeneric,
+        aliases,
+      );
+    });
+  });
+
+  return functionTypes;
 };
 
 var createTemporaryFunctionType = function (node) {
-    var nonGeneric = [];
+  var nonGeneric = [];
 
-    var tempTypes = _.map(node.args, function (arg) {
-        var typeVar = new t.Variable();
+  var tempTypes = _.map(node.args, function (arg) {
+    var typeVar = new t.Variable();
 
-        if (!arg.type) {
-            nonGeneric.push(typeVar);
-        }
+    if (!arg.type) {
+      nonGeneric.push(typeVar);
+    }
 
-        return typeVar;
-    });
+    return typeVar;
+  });
 
-    var resultType = new t.Variable();
+  var resultType = new t.Variable();
 
-    tempTypes.push(resultType);
+  tempTypes.push(resultType);
 
-    nonGeneric.push(resultType);
+  nonGeneric.push(resultType);
 
-    return [new t.FunctionType(tempTypes), nonGeneric];
+  return [new t.FunctionType(tempTypes), nonGeneric];
 };
 
 var createDependencyGraph = function (functionDecls) {
-    var verticesMap = {};
+  var verticesMap = {};
 
-    _.each(functionDecls, function (declaration) {
-        verticesMap[declaration.name] = {
-            id: declaration.name,
-            declaration: declaration
-        };
-    });
-
-    var vertices = _.values(verticesMap);
-
-    var edges = {};
-
-    _.each(vertices, function (vertex) {
-        var freeVariables = getFreeVariables(vertex.declaration);
-
-        var followings = _.map(freeVariables, function (value, identifier) {
-            return verticesMap[identifier];
-        });
-
-        followings = _.without(followings, undefined);
-
-        edges[vertex.declaration.name] = followings;
-    });
-
-    return {
-        vertices: vertices,
-        edges: edges
+  _.each(functionDecls, function (declaration) {
+    verticesMap[declaration.name] = {
+      id: declaration.name,
+      declaration: declaration,
     };
+  });
+
+  var vertices = _.values(verticesMap);
+
+  var edges = {};
+
+  _.each(vertices, function (vertex) {
+    var freeVariables = getFreeVariables(vertex.declaration);
+
+    var followings = _.map(freeVariables, function (value, identifier) {
+      return verticesMap[identifier];
+    });
+
+    followings = _.without(followings, undefined);
+
+    edges[vertex.declaration.name] = followings;
+  });
+
+  return {
+    vertices: vertices,
+    edges: edges,
+  };
 };
 
-var analyseWhereDataDecls = function (whereDecls, env, nonGeneric, aliases, constraints) {
-    var dataDecls = _.filter(whereDecls, function (whereDecl) {
-        return whereDecl instanceof n.Data;
+var analyseWhereDataDecls = function (
+  whereDecls,
+  env,
+  nonGeneric,
+  aliases,
+  constraints,
+) {
+  var dataDecls = _.filter(whereDecls, function (whereDecl) {
+    return whereDecl instanceof n.Data;
+  });
+
+  _.each(dataDecls, function (dataDecl) {
+    var nameType = new t.TagNameType(dataDecl.name);
+    var types = [nameType];
+
+    if (env[dataDecl.name]) {
+      errors.reportError(
+        dataDecl.filename,
+        dataDecl.lineno,
+        dataDecl.column,
+        'Multiple declarations of type constructor: ' + dataDecl.name,
+      );
+    }
+
+    var argNames = {};
+    var argEnv = _.clone(env);
+    _.each(dataDecl.args, function (arg) {
+      if (argNames[arg.name]) {
+        errors.reportError(
+          dataDecl.filename,
+          dataDecl.lineno,
+          dataDecl.column,
+          "Repeated type variable '" + arg.name + "'",
+        );
+      }
+
+      var argType;
+      if (arg.type) {
+        argType = nodeToType(arg, argEnv, aliases);
+      } else {
+        argType = new t.Variable();
+      }
+      argEnv[arg.name] = argType;
+      argNames[arg.name] = argType;
+      types.push(argType);
     });
 
-    _.each(dataDecls, function (dataDecl) {
-        var nameType = new t.TagNameType(dataDecl.name);
-        var types = [nameType];
+    env[dataDecl.name] = new t.TagType(types);
+  });
 
-        if (env[dataDecl.name]) {
-            errors.reportError(dataDecl.filename, dataDecl.lineno, dataDecl.column, "Multiple declarations of type constructor: " + dataDecl.name);
-        }
+  _.each(dataDecls, function (dataDecl) {
+    var type = env[dataDecl.name];
+    var newEnv = _.clone(env);
 
-        var argNames = {};
-        var argEnv = _.clone(env);
-        _.each(dataDecl.args, function (arg) {
-            if (argNames[arg.name]) {
-                errors.reportError(dataDecl.filename, dataDecl.lineno, dataDecl.column, "Repeated type variable '" + arg.name + "'");
-            }
-
-            var argType;
-            if (arg.type) {
-                argType = nodeToType(arg, argEnv, aliases);
-            } else {
-                argType = new t.Variable();
-            }
-            argEnv[arg.name] = argType;
-            argNames[arg.name] = argType;
-            types.push(argType);
-        });
-
-        env[dataDecl.name] = new t.TagType(types);
+    _.each(dataDecl.args, function (arg, i) {
+      var argType = type.types[i + 1];
+      newEnv[arg.name] = argType;
     });
 
-    _.each(dataDecls, function (dataDecl) {
-        var type = env[dataDecl.name];
-        var newEnv = _.clone(env);
+    _.each(dataDecl.tags, function (tag) {
+      if (env[tag.name]) {
+        errors.reportError(
+          dataDecl.filename,
+          dataDecl.lineno,
+          dataDecl.column,
+          'Multiple declarations for data constructor: ' + tag.name,
+        );
+      }
 
-        _.each(dataDecl.args, function (arg, i) {
-            var argType = type.types[i + 1];
-            newEnv[arg.name] = argType;
-        });
-
-        _.each(dataDecl.tags, function (tag) {
-            if (env[tag.name]) {
-                errors.reportError(dataDecl.filename, dataDecl.lineno, dataDecl.column, "Multiple declarations for data constructor: " + tag.name);
-            }
-
-            var tagTypes = [];
-            _.each(tag.vars, function (v, i) {
-                tagTypes[i] = nodeToType(v, newEnv, aliases);
-            });
-            tagTypes.push(type);
-            env[tag.name] = new t.FunctionType(tagTypes);
-        });
+      var tagTypes = [];
+      _.each(tag.vars, function (v, i) {
+        tagTypes[i] = nodeToType(v, newEnv, aliases);
+      });
+      tagTypes.push(type);
+      env[tag.name] = new t.FunctionType(tagTypes);
     });
+  });
 };
 
 // Want to skip typing of comments in bodies
 var withoutComments = function (xs) {
-    return _.filter(xs, function (x) {
-        return !(x instanceof n.Comment);
-    });
+  return _.filter(xs, function (x) {
+    return !(x instanceof n.Comment);
+  });
 };
-
-
-
 
 // ### Type analysis
 //
 // `analyse` is the core inference function. It takes an AST node and returns
 // the infered type.
 var analyse = function (node, env, nonGeneric, aliases, constraints) {
-    if (!nonGeneric) nonGeneric = [];
+  if (!nonGeneric) nonGeneric = [];
 
-    return node.accept({
-        // #### Function definition
-        //
-        // Assigns a type variable to each typeless argument and return type.
-        //
-        // Each typeless argument also gets added to the non-generic scope
-        // array. The `fresh` function can then return the existing type from
-        // the scope.
-        //
-        // Assigns the function's type in the environment and returns it.
-        //
-        // We create temporary types for recursive definitions.
-        visitUnit: function () {
-            return new t.UnitType();
-        },
-        visitImportIntoModule: function() {
-  
-            var fs = require('fs');  
-            var path = require('path');  
-            
-            // Convert path array to file path (e.g., ["Std", "Io"] -> "std/io")  
-            var modulePath = node.path.map(p => p.toLowerCase()).join('/');  
+  return node.accept({
+    // #### Function definition
+    //
+    // Assigns a type variable to each typeless argument and return type.
+    //
+    // Each typeless argument also gets added to the non-generic scope
+    // array. The `fresh` function can then return the existing type from
+    // the scope.
+    //
+    // Assigns the function's type in the environment and returns it.
+    //
+    // We create temporary types for recursive definitions.
+    visitUnit: function () {
+      return new t.UnitType();
+    },
+    visitImportIntoModule: function () {
+      var fs = require('fs');
+      var path = require('path');
 
-            // Check cache to avoid cyclic imports  
-            if (!env.$importCache) {  
-                env.$importCache = {};  
-            }  
+      // Convert path array to file path (e.g., ["Std", "Io"] -> "std/io")
+      var modulePath = node.path.map((p) => p.toLowerCase()).join('/');
 
+      // Check cache to avoid cyclic imports
+      if (!env.$importCache) {
+        env.$importCache = {};
+      }
 
-            const isOperator = (name) => {
-                const operatorChars = '+-*/%<>=!|&?@:';
-                return name.split('').every(function (c) {
-                    return operatorChars.includes(c);
-                });
-            };
+      const isOperator = (name) => {
+        const operatorChars = '+-*/%<>=!|&?@:';
+        return name.split('').every(function (c) {
+          return operatorChars.includes(c);
+        });
+      };
 
-            const mergeOperator = (env, operatorName, overload) => {  
-                const argCount = overload.types.length - 1;  
-                const tableKey = argCount === 1 ? 'unary' : argCount === 2 ? 'binary' : null;  
-                  
-                if (!tableKey) return;  
-                  
-                if (!env.$operators[tableKey][operatorName]) {  
-                    env.$operators[tableKey][operatorName] = [];  
-                }  
-                  
-                // Check if this exact overload already exists  
-                const typeSignature = overload.types.map(t => t.toString()).join('_');  
-                const exists = env.$operators[tableKey][operatorName].some(existing =>   
-                    existing.types.map(t => t.toString()).join('_') === typeSignature  
-                );  
-                  
-                if (!exists) {  
-                    env.$operators[tableKey][operatorName].push(overload);  
-                }  
-            };
+      const mergeOperator = (env, operatorName, overload) => {
+        const argCount = overload.types.length - 1;
+        const tableKey =
+          argCount === 1 ? 'unary' : argCount === 2 ? 'binary' : null;
 
-            const getExports = (body, moduleEnv) => {  
-                let exportedSymbols = {};    
-                _.each(body, function(astNode) {    
-                    if (astNode.annotations && astNode.annotations.length > 0) {    
-                        var hasExport = _.some(astNode.annotations, function(ann) {    
-                            return ann instanceof n.IdAnnotation && ann.name === 'export';    
-                        });    
-                        
-                        if (hasExport) {    
-                            var name = astNode.name;  
-                            
-                            if (isOperator(name)) {  
-                                // Initialize array to collect all overloads  
-                                if (!exportedSymbols[name]) {  
-                                    exportedSymbols[name] = [];  
-                                }  
-                                
-                                // Collect all binary overloads  
-                                if (moduleEnv.$operators['binary'][name]) {  
-                                    exportedSymbols[name] = exportedSymbols[name].concat(  
-                                        moduleEnv.$operators['binary'][name]  
-                                    );  
-                                }  
-                                
-                                // Collect all unary overloads  
-                                if (moduleEnv.$operators['unary'][name]) {  
-                                    exportedSymbols[name] = exportedSymbols[name].concat(  
-                                        moduleEnv.$operators['unary'][name]  
-                                    );  
-                                }  
-                            }
-                            else if (astNode instanceof n.Type) {  
-                                exportedSymbols[name] = moduleAliases[name];  
-                            }  
-                            // Handle algebraic data types  
-                            else if (astNode instanceof n.Data) {  
-                                exportedSymbols[name] = moduleEnv[name];  
-                                // Also export constructors  
-                                _.each(astNode.tags, function(tag) {  
-                                    exportedSymbols[tag.name] = moduleEnv[tag.name];  
-                                });  
-                            }
-                             else if (name) {   
-                                exportedSymbols[name] = moduleEnv[name];    
-                            }    
-                        }    
-                    }    
-                });    
-                return exportedSymbols;  
-            };
-            
-            // Try to find the file  
-            var filePath = modulePath + '.lml';  
-            if (!fs.existsSync(filePath)) {  
-                errors.reportError(  
-                    node.filename,  
-                    node.lineno,  
-                    node.column,  
-                    "Module not found: " + modulePath  
-                );  
-            } 
-            
-            // Create new environment for the module  
+        if (!tableKey) return;
 
-            if (env.$importCache[modulePath]) { 
-                if (env.$importCache[modulePath].compiling) {  
-                    // module is still being compiled - return early  
-                    // the circular dependency will be resolved once both modules finish  
-                    return new t.UnitType();  
-                } 
+        if (!env.$operators[tableKey][operatorName]) {
+          env.$operators[tableKey][operatorName] = [];
+        }
 
-                const moduleAst = env.$importCache[modulePath].ast;
-                const moduleEnv = env.$importCache[modulePath].env;
-                let exportedSymbols = getExports(moduleAst.body, moduleEnv);
+        // Check if this exact overload already exists
+        const typeSignature = overload.types.map((t) => t.toString()).join('_');
+        const exists = env.$operators[tableKey][operatorName].some(
+          (existing) =>
+            existing.types.map((t) => t.toString()).join('_') === typeSignature,
+        );
 
+        if (!exists) {
+          env.$operators[tableKey][operatorName].push(overload);
+        }
+      };
 
-                if (node.liftedIds && node.liftedIds.length > 0) {    
-                    // Selective import: open Std.IO.{print, println}    
-                    _.each(node.liftedIds, function(liftedId) {    
-                        if (!exportedSymbols[liftedId]) {    
-                            errors.reportError(    
-                                node.filename,    
-                                node.lineno,    
-                                node.column,    
-                                "Symbol '" + liftedId + "' is not exported from module " + modulePath    
-                            );    
-                        }
-
-                        const funcs = exportedSymbols[liftedId];
-                        if (isOperator(liftedId)) {
-                          _.each(funcs, function(func) {
-                            mergeOperator(env, liftedId, func);
-                          });
-                        } else {
-                          env[liftedId] = funcs;
-                        }
-                    });  
-                    
-                    var moduleName = node.path[node.path.length - 1];  
-                    if (env[moduleName] instanceof t.ObjectType) {  
-                        delete env[moduleName];  
-                    }  
-                } else {  
-                    var moduleName = node.path[node.path.length - 1];    
-                    env[moduleName] = new t.ObjectType(exportedSymbols);    
-                }
-                return new t.UnitType();
-            }
-
-
-
-
-            // Create tmp directory if it doesn't exist  
-            var tmpDir = path.join(process.cwd(), 'tmp');  
-            if (!fs.existsSync(tmpDir)) {  
-                fs.mkdirSync(tmpDir, { recursive: true });  
-            } 
-
-            // Create placeholder in cache BEFORE compilation  
-            env.$importCache[modulePath] = {  
-                env: null,  // Will be set after compilation  
-                exports: {},  // Will be populated after compilation  
-                ast: null,  // Will be set after compilation  
-                imported: path.dirname(node.filename) === '.',  
-                compiling: true  // Flag to detect real cycles  
-            };  
-
-            let moduleEnv = {};
-            let moduleAliases = {};  
-            moduleEnv.$importCache = env.$importCache;
-            let rtSources = fs.readFileSync("./runtime/runtime.js", 'utf8');
-            let source = fs.readFileSync(filePath, 'utf8'); 
-
-            let compileModule = require('./compile').compile;  
-            let compiled = compileModule(source, moduleEnv, moduleAliases, {  
-                filename: filePath,  
-                nodejs: true,  
-                exported: {},
-                getAst: true
-            });  
-            var moduleAst = compiled.ast;  
-            
-            // Generate output filename using dot-separated path (e.g., "Std.Io.js")  
-            var outputFileName = node.path.join('.') + '.js';  
-            var outputPath = path.join(tmpDir, outputFileName);  
-            
-            // Write compiled JavaScript to tmp folder  
-            fs.writeFileSync(outputPath, rtSources + "\n\n" + compiled.output);  
-
-            let exportedSymbols = getExports(moduleAst.body, moduleEnv);
-
-            //console.log(path.dirname(node.filename), path.dirname(__dirname))
-             
-            env.$importCache[modulePath] = {  
-                env: moduleEnv,  
-                exports: exportedSymbols,  
-                ast: compiled.ast,
-                imported: path.dirname(node.filename) === '.' 
-
-            };
-
-
-            if (node.liftedIds && node.liftedIds.length > 0) {
-                _.each(node.liftedIds, function(liftedId) {
-                    if (!exportedSymbols[liftedId]) { 
-                        errors.reportError(      
-                            node.filename,      
-                            node.lineno,      
-                            node.column,      
-                            "Symbol '" + liftedId + "' is not exported from module " + modulePath      
-                        );      
-                    }  
-                    
-                    if (isOperator(liftedId)) {  
-                        var overloads = exportedSymbols[liftedId];  
-                        
-                        _.each(overloads, function(overload) {  
-                            mergeOperator(env, liftedId, overload);
-                        });  
-                    } else {
-                        const symbol = exportedSymbols[liftedId];  
-                        if (symbol && (symbol.params || symbol.body || symbol.aliased)) {  
-                            aliases[liftedId] = symbol;  
-                        }  else {  
-                            env[liftedId] = exportedSymbols[liftedId];    
-                        }  
-                    }
-                });    
-                       
-            } else {     
-                var moduleName = node.path[node.path.length - 1];    
-                env[moduleName] = new t.ObjectType(exportedSymbols);
-
-                _.each(exportedSymbols, function(symbolType, symbolName) {  
-                    if (isOperator(symbolName)) {
-                        if (Array.isArray(symbolType)) {  
-                            _.each(symbolType, function(overload) {  
-                                mergeOperator(env, symbolName, overload);
-                            });  
-                        }  
-                    }  
-                });
-    
-            }
-            return new t.UnitType();  
-        },
-        visitFunction: function () {
-            const isOperator = (name) => {
-                const operatorChars = '+-*/%<>=!|&?@:';
-                return name.split('').every(function (c) {
-                    return operatorChars.includes(c);
-                });
-            };
-
-            let newNonGeneric = nonGeneric.slice();
-            let newEnv = _.clone(env);
-
-            let funcTypeAndNonGenerics = createTemporaryFunctionType(node);
-            let funcType = funcTypeAndNonGenerics[0];
-
-            if (node.type) {
-                var returnTypeAnnotation = nodeToType(node.type, env, aliases);
-
-                unify(funcType.types[funcType.types.length - 1], returnTypeAnnotation, node);
-            }
-
-            newNonGeneric = newNonGeneric.concat(funcTypeAndNonGenerics[1]);
-
-            let functionConstraints = [];
-            
-            if (node.name && isOperator(node.name)) {
-                const argCount = funcType.types.length - 1; // Last type is return type  
-                const tableKey = argCount === 1 ? 'unary' : argCount === 2 ? 'binary' : null;  
-                  
-                if (!tableKey) {
-                } else if (!newEnv.$operators[tableKey][node.name.g]) {  
-                    newEnv.$operators[tableKey][node.name.g] = [];  
-                    newEnv.$operators[tableKey][node.name.g].push(funcType);  
-                } else newEnv.$operators[tableKey][node.name.g].push(funcType);  
-            } else if (node.name){
-              // TODO: Construct a correct function type
-              newEnv[node.name] = new t.NativeType();;
-            }
-            var functionType = analyseFunction(node, funcType, newEnv, newNonGeneric, aliases, functionConstraints);
-            if (node.type) {
-                var returnTypeAnnotation = nodeToType(node.type, env, aliases);
-                if (functionType instanceof t.FunctionType) {
-                    unify(returnTypeAnnotation, functionType.types[functionType.types.length - 1], node);
-                } else {
-                    unify(returnTypeAnnotation, functionType, node);
-                }
-            }
-
-
-            if (node.name && isOperator(node.name)) {
-                var argCount = functionType.types.length - 1; // Last type is return type  
-
-                if (argCount == 0 || argCount > 2) {
-                    errors.reportError(
-                        node.filename,
-                        node.lineno,
-                        node.column,
-                        "Invalid operator function for `" + node.name + "`. Operator functions must have 1 to 2 parameters (1 for Unary and 2 for Binary Operators)"                        
-                    );
-                }
-                
-                var tableKey = argCount === 1 ? 'unary' : argCount === 2 ? 'binary' : null;
-
-                if (tableKey) {
-                    var mangledName = '__op_' +
-                        encodeOperatorName(node.name) +
-                        '_' +
-                        functionType.types.map(function (t) {
-                            return sanitizeTypeName(t.toString());
-                        }).join('_');
-
-                    node.mangledName = mangledName;
-                    if (!env.$operators[tableKey][node.name]) {
-                        env.$operators[tableKey][node.name] = [];
-                    }
-
-                    env.$operators[tableKey][node.name].push({
-                        types: functionType.types,
-                        name: node.name,
-                        type: functionType
-                    });
-                }
-            }
-
-
-            var typeClassArgs = [];
-            _.each(functionConstraints, function (constraint) {
-                solveTypeClassConstraint(constraint, newEnv, function (instance) {
-                    constraint.node.typeClassInstance = instance.name;
-
-                    var exists = _.find(typeClassArgs, function (a) {
-                        try {
-                            unify(instance.fresh(), a.fresh(), constraint);
-                        } catch (e) {
-                            return false;
-                        }
-                        return true;
-                    });
-                    if (exists) return;
-
-                    typeClassArgs.push(instance);
-                });
+      const getExports = (body, moduleEnv) => {
+        let exportedSymbols = {};
+        _.each(body, function (astNode) {
+          if (astNode.annotations && astNode.annotations.length > 0) {
+            var hasExport = _.some(astNode.annotations, function (ann) {
+              return ann instanceof n.IdAnnotation && ann.name === 'export';
             });
 
-            _.each(typeClassArgs, function (instance) {
-                node.args.unshift(new n.Arg(instance.name, instance));
-                functionType.typeClasses.push(instance);
-            });
+            if (hasExport) {
+              var name = astNode.name;
 
-            if (node.name && !isOperator(node.name)) {
-                if (env[node.name]) {
-                    errors.reportError(
-                        node.filename,
-                        node.lineno,
-                        node.column,
-                        "Function `" + node.name + "` is already defined"
-                    );
+              if (isOperator(name)) {
+                // Initialize array to collect all overloads
+                if (!exportedSymbols[name]) {
+                  exportedSymbols[name] = [];
                 }
-                env[node.name] = functionType;
-            }
 
-            return functionType;
+                // Collect all binary overloads
+                if (moduleEnv.$operators['binary'][name]) {
+                  exportedSymbols[name] = exportedSymbols[name].concat(
+                    moduleEnv.$operators['binary'][name],
+                  );
+                }
 
-        },
-        visitIfThenElse: function () {
-            // if statements are compiled into (function() {...})(), thus they introduce a new environment.
-            var newEnv = _.clone(env);
-
-            var conditionType = analyse(node.condition, newEnv, nonGeneric, aliases, constraints);
-
-            unify(conditionType, new t.BooleanType(), node.condition);
-
-            var ifTrueScopeTypes = _.map(withoutComments(node.ifTrue), function (expression) {
-                return analyse(expression, newEnv, nonGeneric, aliases, constraints);
-            });
-            var ifTrueType = ifTrueScopeTypes[ifTrueScopeTypes.length - 1];
-
-            var ifFalseScopeTypes = _.map(withoutComments(node.ifFalse), function (expression) {
-                return analyse(expression, newEnv, nonGeneric, aliases, constraints);
-            });
-            var ifFalseType = ifFalseScopeTypes[ifFalseScopeTypes.length - 1];
-
-            unify(ifTrueType, ifFalseType, node);
-
-            return ifTrueType;
-        },
-        // #### Function call
-        //
-        // Ensures that all argument types `unify` with the defined function and
-        // returns the function's result type.
-        visitCall: function () {
-            var types = _.map(node.args, function (arg) {
-                return analyse(arg, env, nonGeneric, aliases, constraints);
-            });
-
-            // Check if this is an operator call - ALL chars must be operator symbols  
-            var operatorChars = '+-*/%<>=!|&?@:';
-            var funcName = node.func.value;
-
-            // Check if funcName is composed entirely of operator characters  
-            var isOperator = funcName && funcName.length > 0 &&
-                funcName.split('').every(function (c) {
-                    return operatorChars.includes(c);
+                // Collect all unary overloads
+                if (moduleEnv.$operators['unary'][name]) {
+                  exportedSymbols[name] = exportedSymbols[name].concat(
+                    moduleEnv.$operators['unary'][name],
+                  );
+                }
+              } else if (astNode instanceof n.Type) {
+                exportedSymbols[name] = moduleAliases[name];
+              }
+              // Handle algebraic data types
+              else if (astNode instanceof n.Data) {
+                exportedSymbols[name] = moduleEnv[name];
+                // Also export constructors
+                _.each(astNode.tags, function (tag) {
+                  exportedSymbols[tag.name] = moduleEnv[tag.name];
                 });
-
-            const mergeIdentifiers = () => {
-                _.each(node.args, function (arg, i) {
-                    isOperator = arg.value && arg.value.length > 0 &&
-                        arg.value.split('').every(function (c) {
-                            return operatorChars.includes(c);
-                        });
-
-                    if (!isOperator || !(arg instanceof n.Identifier)) return;
-                    if (arg.value && isOperator) {
-                        var argType = types[i];
-                        var mangledName = '__op_' +
-                            encodeOperatorName(arg.value) +
-                            '_' +
-                            argType.types.map(function (t) {
-                                return sanitizeTypeName(t.toString());
-                            }).join('_');
-                        arg.mangledName = mangledName;
-                    }
-                });
+              } else if (name) {
+                exportedSymbols[name] = moduleEnv[name];
+              }
             }
-            
+          }
+        });
+        return exportedSymbols;
+      };
 
-            if (isOperator && env.$operators) {
-                var tableKey = types.length === 1 ? 'unary' : types.length === 2 ? 'binary' : null;
+      // Try to find the file
+      var filePath = modulePath + '.lml';
+      if (!fs.existsSync(filePath)) {
+        errors.reportError(
+          node.filename,
+          node.lineno,
+          node.column,
+          'Module not found: ' + modulePath,
+        );
+      }
 
-                if (tableKey && env.$operators[tableKey][funcName]) {
-                    var candidates = env.$operators[tableKey][funcName];
+      // Create new environment for the module
 
-                    for (var i = 0; i < candidates.length; i++) {
-                        var candidate = candidates[i];
-                        var success = true;
+      if (env.$importCache[modulePath]) {
+        if (env.$importCache[modulePath].compiling) {
+          // module is still being compiled - return early
+          // the circular dependency will be resolved once both modules finish
+          return new t.UnitType();
+        }
 
-                        try {
-                            var candidateType = candidate.type.fresh(nonGeneric);
-                            var currentType = candidateType;
+        const moduleAst = env.$importCache[modulePath].ast;
+        const moduleEnv = env.$importCache[modulePath].env;
+        let exportedSymbols = getExports(moduleAst.body, moduleEnv);
 
-                            for (var j = 0; j < types.length; j++) {
-                                if (!(currentType instanceof t.FunctionType)) {
-                                    success = false;
-                                    break;
-                                }
-                                unify(types[j], currentType.types[0], node, false);
-
-                                if (currentType.types.length === 2) {
-                                    currentType = currentType.types[1];
-                                } else {
-                                    currentType = new t.FunctionType(currentType.types.slice(1));
-                                }
-                            }
-
-                            if (success) {
-                                var mangledName = '__op_' +
-                                    encodeOperatorName(funcName) +
-                                    '_' +
-                                    candidate.types.map(function (t) {
-                                        return sanitizeTypeName(t.toString());
-                                    }).join('_');
-
-                                mergeIdentifiers()
-                                node.func.mangledName = mangledName;
-                                return currentType;
-                            }
-                        } catch (e) {
-                            continue;
-                        }
-                    }
-
-                    const errorMessage = "No matching overload found for operator " + funcName +
-                        " with argument types: " + types.map(function (t) {
-                            return t.toString();
-                        }).join(", ");
-
-                    errors.reportError(node.filename, node.lineno, node.column, errorMessage);
-                } else {
-                    errors.reportError(node.filename, node.lineno, node.column, "Operator `" + funcName + "` is not defined");
-                }
+        if (node.liftedIds && node.liftedIds.length > 0) {
+          // Selective import: open Std.IO.{print, println}
+          _.each(node.liftedIds, function (liftedId) {
+            if (!exportedSymbols[liftedId]) {
+              errors.reportError(
+                node.filename,
+                node.lineno,
+                node.column,
+                "Symbol '" +
+                  liftedId +
+                  "' is not exported from module " +
+                  modulePath,
+              );
             }
 
-            // Fall back to regular function call handling  
-            var funType = t.prune(analyse(node.func, env, nonGeneric, aliases, constraints));
-            if (funType instanceof t.NativeType) {
-                mergeIdentifiers()
-                return new t.NativeType();
-            }
-
-            _.each(funType.typeClasses, function (type) {
-                constraints.push({
-                    node: node,
-                    type: type
-                });
-            });
-
-            if (funType instanceof t.TagType) {
-                var tagType = env[node.func.value].fresh(nonGeneric);
-
-                _.each(tagType, function (x, i) {
-                    if (!types[i]) errors.reportError(node.filename, node.lineno, node.column, "Not enough arguments to " + node.func.value);
-
-                    var index = tagType.types.indexOf(x);
-                    if (index != -1) {
-                        unify(funType.types[index], types[i], node);
-                    }
-                    unify(x, types[i], node);
-                });
-
-                mergeIdentifiers()
-                return funType;
-            }
-
-            if (funType instanceof t.FunctionType) {
-                var expectedArgCount = funType.types.length - 1;
-                var providedArgCount = types.length;
-
-                for (var i = 0; i < providedArgCount; i++) {
-                    if (i >= expectedArgCount) {
-                        errors.reportError(node.filename, node.lineno, node.column, `Too many arguments provided. Expected ${expectedArgCount} but found ${providedArgCount}`);
-                    }
-                    unify(types[i], funType.types[i], node);
-                }
-
-                if (providedArgCount < expectedArgCount) {
-                    var remainingTypes = funType.types.slice(providedArgCount);
-                    mergeIdentifiers()
-                    return new t.FunctionType(remainingTypes);
-                }
-
-                mergeIdentifiers()
-                return funType.types[funType.types.length - 1];
-            }
-
-            var resultType = new t.Variable();
-            types.push(resultType);
-            unify(new t.FunctionType(types), funType, node);
-
-            mergeIdentifiers()
-            return resultType;
-        },
-        // #### Let binding
-        //
-        // Infer the value's type, assigns it in the environment and returns it.
-        visitLet: function () {
-            var valueType = analyse(node.value, env, nonGeneric, aliases, constraints);
-
-            var annotationType;
-            if (node.type) {
-                annotationType = nodeToType(node.type, env, aliases);
-                if (t.prune(valueType) instanceof t.NativeType) {
-                    valueType = annotationType;
-                } else {
-                    unify(valueType, annotationType, node);
-                }
-            }
-
-            env[node.name] = valueType;
-
-            return valueType;
-        },
-        visitLetIn: function() {  
-            // Clone environment for scoped bindings  
-            var newEnv = _.extend({}, env);  
-            
-            // Analyze each binding in sequence  
-            _.each(node.bindings, function(binding) {  
-                var valueType = analyse(binding.value, newEnv, nonGeneric, aliases, constraints);  
-                
-                if (binding.type) {  
-                    var annotationType = nodeToType(binding.type, newEnv, aliases);  
-                    unify(valueType, annotationType, node);  
-                }  
-                
-                newEnv[binding.name] = valueType;  
-            });  
-            
-            // Analyze body in extended environment  
-            return analyse(node.body, newEnv, nonGeneric, aliases, constraints);  
-        },
-        visitTypeClass: function () {
-            var genericType = nodeToType(node.generic, env, aliases);
-            env[node.name] = new t.TypeClassType(node.name, genericType);
-
-            _.each(node.types, function (typeNode, name) {
-                if (env[name]) {
-                    throw new Error("Can't define " + name + " on a typeclass - already defined");
-                }
-                var nameType = nodeToType(typeNode, env, aliases);
-                nameType.typeClass = node.name;
-                env[name] = nameType;
-            });
-
-            return env[node.name];
-        },
-        visitInstance: function () {
-            var typeClassType = env[node.typeClassName].fresh(nonGeneric);
-
-            var instanceType = nodeToType(node.typeName, env, aliases);
-            unify(typeClassType.type, instanceType, node);
-            var objectType = analyse(node.object, env, nonGeneric, aliases, constraints);
-            _.each(objectType.props, function (propType, key) {
-                if (!env[key]) {
-                    throw new Error("Instance couldn't find " + JSON.stringify(key) + " in environment");
-                }
-                if (env[key].typeClass != node.typeClassName) {
-                    throw new Error(JSON.stringify(key) + " doesn't exist on type-class " + JSON.stringify(node.typeClassName));
-                }
-                unify(propType, env[key].fresh(nonGeneric), node);
-            });
-
-            objectType.typeClassInstance = {
-                name: node.typeClassName,
-                type: typeClassType
-            };
-            env[node.name] = objectType;
-        },
-        visitAssignment: function () {
-            var valueType = analyse(node.value, env, nonGeneric, aliases, constraints);
-
-            if (env[node.name]) {
-                if (t.prune(valueType) instanceof t.NativeType) {
-                    return env[node.name];
-                } else {
-                    unify(valueType, env[node.name], node);
-                }
+            const funcs = exportedSymbols[liftedId];
+            if (isOperator(liftedId)) {
+              _.each(funcs, function (func) {
+                mergeOperator(env, liftedId, func);
+              });
             } else {
-                env[node.name] = valueType;
+              env[liftedId] = funcs;
             }
+          });
 
-            return valueType;
-        },
-        visitDo: function () {
-            // TODO: Make cleaner
-            return env[node.value.value].props['return'].types[1];
-        },
-        visitPropertyAccess: function () {
-            var valueType = analyse(node.value, env, nonGeneric, aliases, constraints);
+          var moduleName = node.path[node.path.length - 1];
+          if (env[moduleName] instanceof t.ObjectType) {
+            delete env[moduleName];
+          }
+        } else {
+          var moduleName = node.path[node.path.length - 1];
+          env[moduleName] = new t.ObjectType(exportedSymbols);
+        }
+        return new t.UnitType();
+      }
 
-            if (t.prune(valueType) instanceof t.NativeType) {
-                return new t.NativeType();
-            }
+      // Create tmp directory if it doesn't exist
+      var tmpDir = path.join(process.cwd(), 'tmp');
+      if (!fs.existsSync(tmpDir)) {
+        fs.mkdirSync(tmpDir, { recursive: true });
+      }
 
-            // TODO: Properly generate property constraints
-            if (valueType instanceof t.ObjectType) {
-                if (!valueType.props[node.property]) {
-                    valueType.props[node.property] = new t.Variable();
-                }
+      // Create placeholder in cache BEFORE compilation
+      env.$importCache[modulePath] = {
+        env: null, // Will be set after compilation
+        exports: {}, // Will be populated after compilation
+        ast: null, // Will be set after compilation
+        imported: path.dirname(node.filename) === '.',
+        compiling: true, // Flag to detect real cycles
+      };
+
+      let moduleEnv = {};
+      let moduleAliases = {};
+      moduleEnv.$importCache = env.$importCache;
+      let rtSources = fs.readFileSync('./runtime/runtime.js', 'utf8');
+      let source = fs.readFileSync(filePath, 'utf8');
+
+      let compileModule = require('./compile').compile;
+      let compiled = compileModule(source, moduleEnv, moduleAliases, {
+        filename: filePath,
+        nodejs: true,
+        exported: {},
+        getAst: true,
+      });
+      var moduleAst = compiled.ast;
+
+      // Generate output filename using dot-separated path (e.g., "Std.Io.js")
+      var outputFileName = node.path.join('.') + '.js';
+      var outputPath = path.join(tmpDir, outputFileName);
+
+      // Write compiled JavaScript to tmp folder
+      fs.writeFileSync(outputPath, rtSources + '\n\n' + compiled.output);
+
+      let exportedSymbols = getExports(moduleAst.body, moduleEnv);
+
+      //console.log(path.dirname(node.filename), path.dirname(__dirname))
+
+      env.$importCache[modulePath] = {
+        env: moduleEnv,
+        exports: exportedSymbols,
+        ast: compiled.ast,
+        imported: path.dirname(node.filename) === '.',
+      };
+
+      if (node.liftedIds && node.liftedIds.length > 0) {
+        _.each(node.liftedIds, function (liftedId) {
+          if (!exportedSymbols[liftedId]) {
+            errors.reportError(
+              node.filename,
+              node.lineno,
+              node.column,
+              "Symbol '" +
+                liftedId +
+                "' is not exported from module " +
+                modulePath,
+            );
+          }
+
+          if (isOperator(liftedId)) {
+            var overloads = exportedSymbols[liftedId];
+
+            _.each(overloads, function (overload) {
+              mergeOperator(env, liftedId, overload);
+            });
+          } else {
+            const symbol = exportedSymbols[liftedId];
+            if (symbol && (symbol.params || symbol.body || symbol.aliased)) {
+              aliases[liftedId] = symbol;
             } else {
-                var propObj = {};
-                propObj[node.property] = new t.Variable();
-                unify(valueType, new t.ObjectType(propObj), node);
+              env[liftedId] = exportedSymbols[liftedId];
             }
+          }
+        });
+      } else {
+        var moduleName = node.path[node.path.length - 1];
+        env[moduleName] = new t.ObjectType(exportedSymbols);
 
-            return t.prune(valueType).getPropertyType(node.property);
-        },
-        visitAccess: function () {
-            var valueType = analyse(node.value, env, nonGeneric, aliases, constraints);
-
-            if (t.prune(valueType) instanceof t.NativeType) {
-                return new t.NativeType();
+        _.each(exportedSymbols, function (symbolType, symbolName) {
+          if (isOperator(symbolName)) {
+            if (Array.isArray(symbolType)) {
+              _.each(symbolType, function (overload) {
+                mergeOperator(env, symbolName, overload);
+              });
             }
+          }
+        });
+      }
+      return new t.UnitType();
+    },
+    visitFunction: function () {
+      const isOperator = (name) => {
+        const operatorChars = '+-*/%<>=!|&?@:';
+        return name.split('').every(function (c) {
+          return operatorChars.includes(c);
+        });
+      };
 
-            unify(valueType, new t.ArrayType(new t.Variable()), node);
+      let newNonGeneric = nonGeneric.slice();
+      let newEnv = _.clone(env);
 
-            var accessType = analyse(node.property, env, nonGeneric, aliases, constraints);
-            unify(accessType, new t.NumberType(), node);
-            return t.prune(valueType).type;
-        },
-        visitUnaryBooleanOperator: function () {
-            var resultType = new t.BooleanType();
-            var valueType = analyse(node.value, env, nonGeneric, aliases, constraints);
-            unify(valueType, resultType, node.value);
+      let funcTypeAndNonGenerics = createTemporaryFunctionType(node);
+      let funcType = funcTypeAndNonGenerics[0];
 
-            return resultType;
-        },
-        visitBinaryGenericOperator: function () {
-            var leftType = analyse(node.left, env, nonGeneric, aliases, constraints);
-            var rightType = analyse(node.right, env, nonGeneric, aliases, constraints);
-            unify(leftType, rightType, node);
+      if (node.type) {
+        var returnTypeAnnotation = nodeToType(node.type, env, aliases);
 
-            return new t.BooleanType();
-        },
-        visitBinaryNumberOperator: function () {
-            var resultType = new t.NumberType();
-            var leftType = analyse(node.left, env, nonGeneric, aliases, constraints);
-            var rightType = analyse(node.right, env, nonGeneric, aliases, constraints);
-            unify(leftType, resultType, node.left);
-            unify(rightType, resultType, node.right);
+        unify(
+          funcType.types[funcType.types.length - 1],
+          returnTypeAnnotation,
+          node,
+        );
+      }
 
-            return resultType;
-        },
-        visitBinaryBooleanOperator: function () {
-            var resultType = new t.BooleanType();
-            var leftType = analyse(node.left, env, nonGeneric, aliases, constraints);
-            var rightType = analyse(node.right, env, nonGeneric, aliases, constraints);
-            unify(leftType, resultType, node.left);
-            unify(rightType, resultType, node.right);
+      newNonGeneric = newNonGeneric.concat(funcTypeAndNonGenerics[1]);
 
-            return resultType;
-        },
-        visitBinaryStringOperator: function () {
-            var resultType = new t.StringType();
-            var leftType = analyse(node.left, env, nonGeneric, aliases, constraints);
-            var rightType = analyse(node.right, env, nonGeneric, aliases, constraints);
-            unify(leftType, resultType, node.left);
-            unify(rightType, resultType, node.right);
+      let functionConstraints = [];
 
-            return resultType;
-        },
-        visitWith: function () {
-            var leftType = analyse(node.left, env, nonGeneric, aliases, constraints);
-            var rightType = analyse(node.right, env, nonGeneric, aliases, constraints);
-            var combinedTypes = {};
+      if (node.name && isOperator(node.name)) {
+        const argCount = funcType.types.length - 1; // Last type is return type
+        const tableKey =
+          argCount === 1 ? 'unary' : argCount === 2 ? 'binary' : null;
 
-            var emptyObjectType = new t.ObjectType({});
-            unify(leftType, emptyObjectType, node.left);
-            unify(rightType, emptyObjectType, node.right);
+        if (!tableKey) {
+        } else if (!newEnv.$operators[tableKey][node.name.g]) {
+          newEnv.$operators[tableKey][node.name.g] = [];
+          newEnv.$operators[tableKey][node.name.g].push(funcType);
+        } else newEnv.$operators[tableKey][node.name.g].push(funcType);
+      } else if (node.name) {
+        // TODO: Construct a correct function type
+        newEnv[node.name] = new t.NativeType();
+      }
+      var functionType = analyseFunction(
+        node,
+        funcType,
+        newEnv,
+        newNonGeneric,
+        aliases,
+        functionConstraints,
+      );
+      if (node.type) {
+        var returnTypeAnnotation = nodeToType(node.type, env, aliases);
+        if (functionType instanceof t.FunctionType) {
+          unify(
+            returnTypeAnnotation,
+            functionType.types[functionType.types.length - 1],
+            node,
+          );
+        } else {
+          unify(returnTypeAnnotation, functionType, node);
+        }
+      }
 
-            var name;
-            for (name in leftType.props) {
-                combinedTypes[name] = leftType.props[name];
+      if (node.name && isOperator(node.name)) {
+        var argCount = functionType.types.length - 1; // Last type is return type
+
+        if (argCount == 0 || argCount > 2) {
+          errors.reportError(
+            node.filename,
+            node.lineno,
+            node.column,
+            'Invalid operator function for `' +
+              node.name +
+              '`. Operator functions must have 1 to 2 parameters (1 for Unary and 2 for Binary Operators)',
+          );
+        }
+
+        var tableKey =
+          argCount === 1 ? 'unary' : argCount === 2 ? 'binary' : null;
+
+        if (tableKey) {
+          var mangledName =
+            '__op_' +
+            encodeOperatorName(node.name) +
+            '_' +
+            functionType.types
+              .map(function (t) {
+                return sanitizeTypeName(t.toString());
+              })
+              .join('_');
+
+          node.mangledName = mangledName;
+          if (!env.$operators[tableKey][node.name]) {
+            env.$operators[tableKey][node.name] = [];
+          }
+
+          env.$operators[tableKey][node.name].push({
+            types: functionType.types,
+            name: node.name,
+            type: functionType,
+          });
+        }
+      }
+
+      var typeClassArgs = [];
+      _.each(functionConstraints, function (constraint) {
+        solveTypeClassConstraint(constraint, newEnv, function (instance) {
+          constraint.node.typeClassInstance = instance.name;
+
+          var exists = _.find(typeClassArgs, function (a) {
+            try {
+              unify(instance.fresh(), a.fresh(), constraint);
+            } catch (e) {
+              return false;
             }
-            for (name in rightType.props) {
-                combinedTypes[name] = rightType.props[name];
-            }
+            return true;
+          });
+          if (exists) return;
 
-            return new t.ObjectType(combinedTypes);
+          typeClassArgs.push(instance);
+        });
+      });
+
+      _.each(typeClassArgs, function (instance) {
+        node.args.unshift(new n.Arg(instance.name, instance));
+        functionType.typeClasses.push(instance);
+      });
+
+      if (node.name && !isOperator(node.name)) {
+        if (env[node.name]) {
+          errors.reportError(
+            node.filename,
+            node.lineno,
+            node.column,
+            'Function `' + node.name + '` is already defined',
+          );
+        }
+        env[node.name] = functionType;
+      }
+
+      return functionType;
+    },
+    visitIfThenElse: function () {
+      // if statements are compiled into (function() {...})(), thus they introduce a new environment.
+      var newEnv = _.clone(env);
+
+      var conditionType = analyse(
+        node.condition,
+        newEnv,
+        nonGeneric,
+        aliases,
+        constraints,
+      );
+
+      unify(conditionType, new t.BooleanType(), node.condition);
+
+      var ifTrueScopeTypes = _.map(
+        withoutComments(node.ifTrue),
+        function (expression) {
+          return analyse(expression, newEnv, nonGeneric, aliases, constraints);
         },
-        visitData: function () {
-            analyseWhereDataDecls([node], env, nonGeneric, aliases, constraints);
+      );
+      var ifTrueType = ifTrueScopeTypes[ifTrueScopeTypes.length - 1];
 
-            return new t.NativeType();
+      var ifFalseScopeTypes = _.map(
+        withoutComments(node.ifFalse),
+        function (expression) {
+          return analyse(expression, newEnv, nonGeneric, aliases, constraints);
         },
-        visitMatch: function () {
-            var resultType = new t.Variable();
-            var value = analyse(node.value, env, nonGeneric, aliases, constraints);
-            var newEnv = _.clone(env);
+      );
+      var ifFalseType = ifFalseScopeTypes[ifFalseScopeTypes.length - 1];
 
-            // Helper function to handle pattern binding recursively  
-            var handlePatternBinding = function (pattern, expectedType, penv, nonGeneric) {
-                pattern.accept({
-                    visitNumber: function () {
-                        unify(expectedType, new t.NumberType(), pattern);
-                    },
-                    visitString: function () {
-                        unify(expectedType, new t.StringType(), pattern);
-                    },
-                    visitBoolean: function () {
-                        unify(expectedType, new t.BooleanType(), pattern);
-                    },
+      unify(ifTrueType, ifFalseType, node);
 
-                    visitIdentifier: function () {
-                        if (pattern.value === '_') return; // Wildcard pattern  
+      return ifTrueType;
+    },
+    // #### Function call
+    //
+    // Ensures that all argument types `unify` with the defined function and
+    // returns the function's result type.
+    visitCall: function () {
+      var types = _.map(node.args, function (arg) {
+        return analyse(arg, env, nonGeneric, aliases, constraints);
+      });
 
-                        // OCaml convention: uppercase = constructor, lowercase = binding  
-                        if (pattern.value[0] === pattern.value[0].toUpperCase()) {
-                            // Constructor with 0 args  
-                            var tagType = penv[pattern.value];
-                            if (!tagType)
-                                errors.reportError(pattern.filename, pattern.lineno, pattern.column, "Couldn't find constructor: " + pattern.value)
-                            unify(expectedType, _.last(t.prune(tagType).types).fresh(nonGeneric), pattern);
-                        } else {
-                            // Variable binding  
-                            penv[pattern.value] = expectedType;
-                            nonGeneric.push(expectedType);
-                        }
-                    },
+      // Check if this is an operator call - ALL chars must be operator symbols
+      var operatorChars = '+-*/%<>=!|&?@:';
+      var funcName = node.func.value;
 
-                    visitArray: function () {
-                        var elemType = new t.Variable();
-                        unify(expectedType, new t.ArrayType(elemType), pattern);
-                        _.each(pattern.values, function (elemPattern) {
-                            handlePatternBinding(elemPattern, elemType, penv, nonGeneric);
-                        });
-                    },
-                    visitTuple: function () {
-                        var tupleType = new t.TupleType(  
-                            pattern.values.map(() => new t.Variable())  
-                        );  
-                        unify(expectedType, tupleType, pattern);  
-                        
-                        _.each(pattern.values, function (elemPattern, i) {  
-                            var elemType = t.prune(tupleType.types[i]);  
-                            handlePatternBinding(elemPattern, elemType, penv, nonGeneric);  
-                        });  
-                    },
-                    visitObject: function () {
-                        var propTypes = {};
-                        for (var key in pattern.values) {
-                            propTypes[key] = new t.Variable();
-                            handlePatternBinding(pattern.values[key], propTypes[key], penv, nonGeneric);
-                        }
-                        unify(expectedType, new t.ObjectType(propTypes), pattern);
-                    },
-                    visitListConstPattern: function () {
-                        var elemType = new t.Variable();  
-                        unify(expectedType, new t.ArrayType(elemType), pattern);  
-                        
-                        // Process all elements except the last as individual elements  
-                        _.each(pattern.patterns.slice(0, -1), function (elemPattern) {  
-                            handlePatternBinding(elemPattern, elemType, penv, nonGeneric);  
-                        });  
-                        
-                        // The last element represents the rest of the list (tail)  
-                        if (pattern.patterns.length > 0) {  
-                            var lastPattern = pattern.patterns[pattern.patterns.length - 1];  
-                            handlePatternBinding(lastPattern, new t.ArrayType(elemType), penv, nonGeneric);  
-                        } 
-                    },
-                    visitPattern: function () {
-                        // Handle wildcard pattern  
-                        if (pattern.tag === '_') {
-                            return;
-                        }
+      // Check if funcName is composed entirely of operator characters
+      var isOperator =
+        funcName &&
+        funcName.length > 0 &&
+        funcName.split('').every(function (c) {
+          return operatorChars.includes(c);
+        });
 
-                        // Handle variable binding (lowercase identifier with no args)  
-                        if (pattern.vars.length === 0 && pattern.tag[0] === pattern.tag[0].toLowerCase()) {
-                            penv[pattern.tag] = expectedType;
-                            nonGeneric.push(expectedType);
-                            return;
-                        }
+      const mergeIdentifiers = () => {
+        _.each(node.args, function (arg, i) {
+          isOperator =
+            arg.value &&
+            arg.value.length > 0 &&
+            arg.value.split('').every(function (c) {
+              return operatorChars.includes(c);
+            });
 
-                        // Handle constructor pattern (uppercase identifier)  
-                        var tagType = penv[pattern.tag];
-                        if (!tagType) {
-                            errors.reportError(pattern.filename, pattern.lineno, pattern.column, "Couldn't find type tag: " + pattern.value)
-                        }
+          if (!isOperator || !(arg instanceof n.Identifier)) return;
+          if (arg.value && isOperator) {
+            var argType = types[i];
+            var mangledName =
+              '__op_' +
+              encodeOperatorName(arg.value) +
+              '_' +
+              argType.types
+                .map(function (t) {
+                  return sanitizeTypeName(t.toString());
+                })
+                .join('_');
+            arg.mangledName = mangledName;
+          }
+        });
+      };
 
-                        unify(expectedType, _.last(t.prune(tagType).types).fresh(nonGeneric), pattern);
+      if (isOperator && env.$operators) {
+        var tableKey =
+          types.length === 1 ? 'unary' : types.length === 2 ? 'binary' : null;
 
-                        // Process constructor arguments  
-                        _.each(pattern.vars, function (v, i) {
-                            var argType = penv[pattern.tag].types[i];
-                            handlePatternBinding(v, argType, penv, nonGeneric);
-                        });
-                    }
-                });
-            };
+        if (tableKey && env.$operators[tableKey][funcName]) {
+          var candidates = env.$operators[tableKey][funcName];
 
-            _.each(node.cases, function (nodeCase) {
-                var newNonGeneric = nonGeneric.slice();
-                var caseEnv = _.clone(newEnv);
+          for (var i = 0; i < candidates.length; i++) {
+            var candidate = candidates[i];
+            var success = true;
 
-                handlePatternBinding(nodeCase.pattern, value, caseEnv, newNonGeneric);
+            try {
+              var candidateType = candidate.type.fresh(nonGeneric);
+              var currentType = candidateType;
 
-                var caseType = analyse(nodeCase.value, caseEnv, newNonGeneric, aliases, constraints);
-                if (caseType instanceof t.FunctionType && caseType.types.length == 1) {
-                    unify(resultType, _.last(caseType.types), nodeCase);
+              for (var j = 0; j < types.length; j++) {
+                if (!(currentType instanceof t.FunctionType)) {
+                  success = false;
+                  break;
+                }
+                unify(types[j], currentType.types[0], node, false);
+
+                if (currentType.types.length === 2) {
+                  currentType = currentType.types[1];
                 } else {
-                    unify(resultType, caseType, nodeCase);
+                  currentType = new t.FunctionType(currentType.types.slice(1));
                 }
-            });
+              }
 
-            return resultType;
-        },
-        // Type alias
-        visitType: function () {
-            var argEnv = _.clone(env);
-            var argTypes = [];
+              if (success) {
+                var mangledName =
+                  '__op_' +
+                  encodeOperatorName(funcName) +
+                  '_' +
+                  candidate.types
+                    .map(function (t) {
+                      return sanitizeTypeName(t.toString());
+                    })
+                    .join('_');
 
-            // Create type variables for each generic parameter    
-            _.each(node.args, function (arg) {
-                var typeVar = new t.Variable(arg.name);
-                argEnv[arg.name] = typeVar;
-                argTypes.push(typeVar);
-            });
-
-            var resolvedType = nodeToType(node.value, argEnv, aliases);
-
-            if (argTypes.length > 0) {
-                aliases[node.name] = {
-                    params: argTypes,
-                    body: resolvedType
-                };
-            } else {
-                aliases[node.name] = resolvedType;
+                mergeIdentifiers();
+                node.func.mangledName = mangledName;
+                return currentType;
+              }
+            } catch (e) {
+              continue;
             }
+          }
 
-            aliases[node.name].aliased = node.name;
-            return new t.NativeType();
-        },
-        // #### Identifier
-        //
-        // Creates a `fresh` copy of a type if the name is found in an
-        // environment, otherwise throws an error.
-        visitIdentifier: function () {
-            // Regular identifier lookup  
-            if (env[node.value]) { 
-                return env[node.value].fresh(nonGeneric);
-            }
+          const errorMessage =
+            'No matching overload found for operator ' +
+            funcName +
+            ' with argument types: ' +
+            types
+              .map(function (t) {
+                return t.toString();
+              })
+              .join(', ');
 
-            // NOTE: This patch is meant to work more like a bandage, just a
-            // temporary fix.... or is it? we'll never know
-            // This patch solves the issue tracked in issue #3
-            // https://github.com/hexaredecimal/Llaml/issues/3#issue-3713842843
-            errors.reportWarning(
-               node.filename,
-               node.lineno,
-               node.column, 
-               `Warning: Usage of an undefined symbol "${node.value}". `
-                + `the code will compile and your missing symbol will be treated as a`
-                + ` value of type "Any". It is your job to make sure your unknown symbol`
-                + ` is present at runtime`
+          errors.reportError(
+            node.filename,
+            node.lineno,
+            node.column,
+            errorMessage,
+          );
+        } else {
+          errors.reportError(
+            node.filename,
+            node.lineno,
+            node.column,
+            'Operator `' + funcName + '` is not defined',
+          );
+        }
+      }
+
+      // Fall back to regular function call handling
+      var funType = t.prune(
+        analyse(node.func, env, nonGeneric, aliases, constraints),
+      );
+      if (funType instanceof t.NativeType) {
+        mergeIdentifiers();
+        return new t.NativeType();
+      }
+
+      _.each(funType.typeClasses, function (type) {
+        constraints.push({
+          node: node,
+          type: type,
+        });
+      });
+
+      if (funType instanceof t.TagType) {
+        var tagType = env[node.func.value].fresh(nonGeneric);
+
+        _.each(tagType, function (x, i) {
+          if (!types[i])
+            errors.reportError(
+              node.filename,
+              node.lineno,
+              node.column,
+              'Not enough arguments to ' + node.func.value,
             );
 
-            return new t.NativeType();
-        },
-        // #### Primitive type
-        visitNumber: function () {
-            return new t.NumberType();
-        },
-        visitString: function () {
-            return new t.StringType();
-        },
-        visitBoolean: function () {
-            return new t.BooleanType();
-        },
-        visitArray: function () {
-            var valueType = new t.Variable();  
-            var allSameType = true;  
-            
-            _.each(node.values, function (v) {  
-                try {  
-                    var elemType = analyse(v, env, nonGeneric, aliases, constraints);  
-                    unify(valueType, elemType, v, false);  
-                } catch (e) {  
-                    allSameType = false;  
-                }  
-            });  
-            
-            if (!allSameType) {  
-                return new t.ArrayType(new t.NativeType());  
-            }  
-            
-            return new t.ArrayType(valueType);
-        },
-        visitTuple: function () {
+          var index = tagType.types.indexOf(x);
+          if (index != -1) {
+            unify(funType.types[index], types[i], node);
+          }
+          unify(x, types[i], node);
+        });
+
+        mergeIdentifiers();
+        return funType;
+      }
+
+      if (funType instanceof t.FunctionType) {
+        var expectedArgCount = funType.types.length - 1;
+        var providedArgCount = types.length;
+
+        for (var i = 0; i < providedArgCount; i++) {
+          if (i >= expectedArgCount) {
+            errors.reportError(
+              node.filename,
+              node.lineno,
+              node.column,
+              `Too many arguments provided. Expected ${expectedArgCount} but found ${providedArgCount}`,
+            );
+          }
+          unify(types[i], funType.types[i], node);
+        }
+
+        if (providedArgCount < expectedArgCount) {
+          var remainingTypes = funType.types.slice(providedArgCount);
+          mergeIdentifiers();
+          return new t.FunctionType(remainingTypes);
+        }
+
+        mergeIdentifiers();
+        return funType.types[funType.types.length - 1];
+      }
+
+      var resultType = new t.Variable();
+      types.push(resultType);
+      unify(new t.FunctionType(types), funType, node);
+
+      mergeIdentifiers();
+      return resultType;
+    },
+    // #### Let binding
+    //
+    // Infer the value's type, assigns it in the environment and returns it.
+    visitLet: function () {
+      var valueType = analyse(
+        node.value,
+        env,
+        nonGeneric,
+        aliases,
+        constraints,
+      );
+
+      var annotationType;
+      if (node.type) {
+        annotationType = nodeToType(node.type, env, aliases);
+        if (t.prune(valueType) instanceof t.NativeType) {
+          valueType = annotationType;
+        } else {
+          unify(valueType, annotationType, node);
+        }
+      }
+
+      env[node.name] = valueType;
+
+      return valueType;
+    },
+    visitLetIn: function () {
+      // Clone environment for scoped bindings
+      var newEnv = _.extend({}, env);
+
+      // Analyze each binding in sequence
+      _.each(node.bindings, function (binding) {
+        var valueType = analyse(
+          binding.value,
+          newEnv,
+          nonGeneric,
+          aliases,
+          constraints,
+        );
+
+        if (binding.type) {
+          var annotationType = nodeToType(binding.type, newEnv, aliases);
+          unify(valueType, annotationType, node);
+        }
+
+        newEnv[binding.name] = valueType;
+      });
+
+      // Analyze body in extended environment
+      return analyse(node.body, newEnv, nonGeneric, aliases, constraints);
+    },
+    visitTypeClass: function () {
+      var genericType = nodeToType(node.generic, env, aliases);
+      env[node.name] = new t.TypeClassType(node.name, genericType);
+
+      _.each(node.types, function (typeNode, name) {
+        if (env[name]) {
+          throw new Error(
+            "Can't define " + name + ' on a typeclass - already defined',
+          );
+        }
+        var nameType = nodeToType(typeNode, env, aliases);
+        nameType.typeClass = node.name;
+        env[name] = nameType;
+      });
+
+      return env[node.name];
+    },
+    visitInstance: function () {
+      var typeClassType = env[node.typeClassName].fresh(nonGeneric);
+
+      var instanceType = nodeToType(node.typeName, env, aliases);
+      unify(typeClassType.type, instanceType, node);
+      var objectType = analyse(
+        node.object,
+        env,
+        nonGeneric,
+        aliases,
+        constraints,
+      );
+      _.each(objectType.props, function (propType, key) {
+        if (!env[key]) {
+          throw new Error(
+            "Instance couldn't find " + JSON.stringify(key) + ' in environment',
+          );
+        }
+        if (env[key].typeClass != node.typeClassName) {
+          throw new Error(
+            JSON.stringify(key) +
+              " doesn't exist on type-class " +
+              JSON.stringify(node.typeClassName),
+          );
+        }
+        unify(propType, env[key].fresh(nonGeneric), node);
+      });
+
+      objectType.typeClassInstance = {
+        name: node.typeClassName,
+        type: typeClassType,
+      };
+      env[node.name] = objectType;
+    },
+    visitAssignment: function () {
+      var valueType = analyse(
+        node.value,
+        env,
+        nonGeneric,
+        aliases,
+        constraints,
+      );
+
+      if (env[node.name]) {
+        if (t.prune(valueType) instanceof t.NativeType) {
+          return env[node.name];
+        } else {
+          unify(valueType, env[node.name], node);
+        }
+      } else {
+        env[node.name] = valueType;
+      }
+
+      return valueType;
+    },
+    visitDo: function () {
+      // TODO: Make cleaner
+      return env[node.value.value].props['return'].types[1];
+    },
+    visitPropertyAccess: function () {
+      var valueType = analyse(
+        node.value,
+        env,
+        nonGeneric,
+        aliases,
+        constraints,
+      );
+
+      if (t.prune(valueType) instanceof t.NativeType) {
+        return new t.NativeType();
+      }
+
+      // TODO: Properly generate property constraints
+      if (valueType instanceof t.ObjectType) {
+        if (!valueType.props[node.property]) {
+          valueType.props[node.property] = new t.Variable();
+        }
+      } else {
+        var propObj = {};
+        propObj[node.property] = new t.Variable();
+        unify(valueType, new t.ObjectType(propObj), node);
+      }
+
+      return t.prune(valueType).getPropertyType(node.property);
+    },
+    visitAccess: function () {
+      var valueType = analyse(
+        node.value,
+        env,
+        nonGeneric,
+        aliases,
+        constraints,
+      );
+
+      if (t.prune(valueType) instanceof t.NativeType) {
+        return new t.NativeType();
+      }
+
+      unify(valueType, new t.ArrayType(new t.Variable()), node);
+
+      var accessType = analyse(
+        node.property,
+        env,
+        nonGeneric,
+        aliases,
+        constraints,
+      );
+      unify(accessType, new t.NumberType(), node);
+      return t.prune(valueType).type;
+    },
+    visitUnaryBooleanOperator: function () {
+      var resultType = new t.BooleanType();
+      var valueType = analyse(
+        node.value,
+        env,
+        nonGeneric,
+        aliases,
+        constraints,
+      );
+      unify(valueType, resultType, node.value);
+
+      return resultType;
+    },
+    visitBinaryGenericOperator: function () {
+      var leftType = analyse(node.left, env, nonGeneric, aliases, constraints);
+      var rightType = analyse(
+        node.right,
+        env,
+        nonGeneric,
+        aliases,
+        constraints,
+      );
+      unify(leftType, rightType, node);
+
+      return new t.BooleanType();
+    },
+    visitBinaryNumberOperator: function () {
+      var resultType = new t.NumberType();
+      var leftType = analyse(node.left, env, nonGeneric, aliases, constraints);
+      var rightType = analyse(
+        node.right,
+        env,
+        nonGeneric,
+        aliases,
+        constraints,
+      );
+      unify(leftType, resultType, node.left);
+      unify(rightType, resultType, node.right);
+
+      return resultType;
+    },
+    visitBinaryBooleanOperator: function () {
+      var resultType = new t.BooleanType();
+      var leftType = analyse(node.left, env, nonGeneric, aliases, constraints);
+      var rightType = analyse(
+        node.right,
+        env,
+        nonGeneric,
+        aliases,
+        constraints,
+      );
+      unify(leftType, resultType, node.left);
+      unify(rightType, resultType, node.right);
+
+      return resultType;
+    },
+    visitBinaryStringOperator: function () {
+      var resultType = new t.StringType();
+      var leftType = analyse(node.left, env, nonGeneric, aliases, constraints);
+      var rightType = analyse(
+        node.right,
+        env,
+        nonGeneric,
+        aliases,
+        constraints,
+      );
+      unify(leftType, resultType, node.left);
+      unify(rightType, resultType, node.right);
+
+      return resultType;
+    },
+    visitWith: function () {
+      var leftType = analyse(node.left, env, nonGeneric, aliases, constraints);
+      var rightType = analyse(
+        node.right,
+        env,
+        nonGeneric,
+        aliases,
+        constraints,
+      );
+      var combinedTypes = {};
+
+      var emptyObjectType = new t.ObjectType({});
+      unify(leftType, emptyObjectType, node.left);
+      unify(rightType, emptyObjectType, node.right);
+
+      var name;
+      for (name in leftType.props) {
+        combinedTypes[name] = leftType.props[name];
+      }
+      for (name in rightType.props) {
+        combinedTypes[name] = rightType.props[name];
+      }
+
+      return new t.ObjectType(combinedTypes);
+    },
+    visitData: function () {
+      analyseWhereDataDecls([node], env, nonGeneric, aliases, constraints);
+
+      return new t.NativeType();
+    },
+    visitMatch: function () {
+      var resultType = new t.Variable();
+      var value = analyse(node.value, env, nonGeneric, aliases, constraints);
+      var newEnv = _.clone(env);
+
+      // Helper function to handle pattern binding recursively
+      var handlePatternBinding = function (
+        pattern,
+        expectedType,
+        penv,
+        nonGeneric,
+      ) {
+        pattern.accept({
+          visitNumber: function () {
+            unify(expectedType, new t.NumberType(), pattern);
+          },
+          visitString: function () {
+            unify(expectedType, new t.StringType(), pattern);
+          },
+          visitBoolean: function () {
+            unify(expectedType, new t.BooleanType(), pattern);
+          },
+
+          visitIdentifier: function () {
+            if (pattern.value === '_') return; // Wildcard pattern
+
+            // OCaml convention: uppercase = constructor, lowercase = binding
+            if (pattern.value[0] === pattern.value[0].toUpperCase()) {
+              // Constructor with 0 args
+              var tagType = penv[pattern.value];
+              if (!tagType)
+                errors.reportError(
+                  pattern.filename,
+                  pattern.lineno,
+                  pattern.column,
+                  "Couldn't find constructor: " + pattern.value,
+                );
+              unify(
+                expectedType,
+                _.last(t.prune(tagType).types).fresh(nonGeneric),
+                pattern,
+              );
+            } else {
+              // Variable binding
+              penv[pattern.value] = expectedType;
+              nonGeneric.push(expectedType);
+            }
+          },
+
+          visitArray: function () {
+            var elemType = new t.Variable();
+            unify(expectedType, new t.ArrayType(elemType), pattern);
+            _.each(pattern.values, function (elemPattern) {
+              handlePatternBinding(elemPattern, elemType, penv, nonGeneric);
+            });
+          },
+          visitTuple: function () {
+            var tupleType = new t.TupleType(
+              pattern.values.map(() => new t.Variable()),
+            );
+            unify(expectedType, tupleType, pattern);
+
+            _.each(pattern.values, function (elemPattern, i) {
+              var elemType = t.prune(tupleType.types[i]);
+              handlePatternBinding(elemPattern, elemType, penv, nonGeneric);
+            });
+          },
+          visitObject: function () {
             var propTypes = {};
-            _.each(node.values, function (v, i) {
-                propTypes[i] = analyse(v, env, nonGeneric, aliases, constraints);
+            for (var key in pattern.values) {
+              propTypes[key] = new t.Variable();
+              handlePatternBinding(
+                pattern.values[key],
+                propTypes[key],
+                penv,
+                nonGeneric,
+              );
+            }
+            unify(expectedType, new t.ObjectType(propTypes), pattern);
+          },
+          visitListConstPattern: function () {
+            var elemType = new t.Variable();
+            unify(expectedType, new t.ArrayType(elemType), pattern);
+
+            // Process all elements except the last as individual elements
+            _.each(pattern.patterns.slice(0, -1), function (elemPattern) {
+              handlePatternBinding(elemPattern, elemType, penv, nonGeneric);
             });
 
-            var typesArray = [];          
-            for (var i = 0; i < Object.keys(propTypes).length; i++) {  
-                typesArray.push(propTypes[i]);  
-            }  
-            return new t.TupleType(typesArray);  
-        },
-        visitObject: function () {
-            var propTypes = {};
-            var prop;
-            for (prop in node.values) {
-                propTypes[prop] = analyse(node.values[prop], env, nonGeneric, aliases, constraints);
+            // The last element represents the rest of the list (tail)
+            if (pattern.patterns.length > 0) {
+              var lastPattern = pattern.patterns[pattern.patterns.length - 1];
+              handlePatternBinding(
+                lastPattern,
+                new t.ArrayType(elemType),
+                penv,
+                nonGeneric,
+              );
             }
-            return new t.ObjectType(propTypes);
+          },
+          visitPattern: function () {
+            // Handle wildcard pattern
+            if (pattern.tag === '_') {
+              return;
+            }
+
+            // Handle variable binding (lowercase identifier with no args)
+            if (
+              pattern.vars.length === 0 &&
+              pattern.tag[0] === pattern.tag[0].toLowerCase()
+            ) {
+              penv[pattern.tag] = expectedType;
+              nonGeneric.push(expectedType);
+              return;
+            }
+
+            // Handle constructor pattern (uppercase identifier)
+            var tagType = penv[pattern.tag];
+            if (!tagType) {
+              errors.reportError(
+                pattern.filename,
+                pattern.lineno,
+                pattern.column,
+                "Couldn't find type tag: " + pattern.value,
+              );
+            }
+
+            unify(
+              expectedType,
+              _.last(t.prune(tagType).types).fresh(nonGeneric),
+              pattern,
+            );
+
+            // Process constructor arguments
+            _.each(pattern.vars, function (v, i) {
+              var argType = penv[pattern.tag].types[i];
+              handlePatternBinding(v, argType, penv, nonGeneric);
+            });
+          },
+        });
+      };
+
+      _.each(node.cases, function (nodeCase) {
+        var newNonGeneric = nonGeneric.slice();
+        var caseEnv = _.clone(newEnv);
+
+        handlePatternBinding(nodeCase.pattern, value, caseEnv, newNonGeneric);
+
+        var caseType = analyse(
+          nodeCase.value,
+          caseEnv,
+          newNonGeneric,
+          aliases,
+          constraints,
+        );
+        if (caseType instanceof t.FunctionType && caseType.types.length == 1) {
+          unify(resultType, _.last(caseType.types), nodeCase);
+        } else {
+          unify(resultType, caseType, nodeCase);
         }
-    });
+      });
+
+      return resultType;
+    },
+    // Type alias
+    visitType: function () {
+      var argEnv = _.clone(env);
+      var argTypes = [];
+
+      // Create type variables for each generic parameter
+      _.each(node.args, function (arg) {
+        var typeVar = new t.Variable(arg.name);
+        argEnv[arg.name] = typeVar;
+        argTypes.push(typeVar);
+      });
+
+      var resolvedType = nodeToType(node.value, argEnv, aliases);
+
+      if (argTypes.length > 0) {
+        aliases[node.name] = {
+          params: argTypes,
+          body: resolvedType,
+        };
+      } else {
+        aliases[node.name] = resolvedType;
+      }
+
+      aliases[node.name].aliased = node.name;
+      return new t.NativeType();
+    },
+    // #### Identifier
+    //
+    // Creates a `fresh` copy of a type if the name is found in an
+    // environment, otherwise throws an error.
+    visitIdentifier: function () {
+      // Regular identifier lookup
+      if (env[node.value]) {
+        return env[node.value].fresh(nonGeneric);
+      }
+
+      // NOTE: This patch is meant to work more like a bandage, just a
+      // temporary fix.... or is it? we'll never know
+      // This patch solves the issue tracked in issue #3
+      // https://github.com/hexaredecimal/Llaml/issues/3#issue-3713842843
+      errors.reportWarning(
+        node.filename,
+        node.lineno,
+        node.column,
+        `Warning: Usage of an undefined symbol "${node.value}". ` +
+          `the code will compile and your missing symbol will be treated as a` +
+          ` value of type "Any". It is your job to make sure your unknown symbol` +
+          ` is present at runtime`,
+      );
+
+      return new t.NativeType();
+    },
+    // #### Primitive type
+    visitNumber: function () {
+      return new t.NumberType();
+    },
+    visitString: function () {
+      return new t.StringType();
+    },
+    visitBoolean: function () {
+      return new t.BooleanType();
+    },
+    visitArray: function () {
+      var valueType = new t.Variable();
+      var allSameType = true;
+
+      _.each(node.values, function (v) {
+        try {
+          var elemType = analyse(v, env, nonGeneric, aliases, constraints);
+          unify(valueType, elemType, v, false);
+        } catch (e) {
+          allSameType = false;
+        }
+      });
+
+      if (!allSameType) {
+        return new t.ArrayType(new t.NativeType());
+      }
+
+      return new t.ArrayType(valueType);
+    },
+    visitTuple: function () {
+      var propTypes = {};
+      _.each(node.values, function (v, i) {
+        propTypes[i] = analyse(v, env, nonGeneric, aliases, constraints);
+      });
+
+      var typesArray = [];
+      for (var i = 0; i < Object.keys(propTypes).length; i++) {
+        typesArray.push(propTypes[i]);
+      }
+      return new t.TupleType(typesArray);
+    },
+    visitObject: function () {
+      var propTypes = {};
+      var prop;
+      for (prop in node.values) {
+        propTypes[prop] = analyse(
+          node.values[prop],
+          env,
+          nonGeneric,
+          aliases,
+          constraints,
+        );
+      }
+      return new t.ObjectType(propTypes);
+    },
+  });
 };
 
 // Converts an AST node to type system type.
 var nodeToType = function (n, env, aliases) {
-    return n.accept({
-        visitGeneric: function (g) {
-            return new t.Variable(g.value);
-        },
-        visitTypeFunction: function (tf) {
-            return new t.FunctionType(_.map(tf.args, function (v) {
-                return nodeToType(v, env, aliases);
-            }));
-        },
-        visitTypeArray: function (ta) {
-            return new t.ArrayType(nodeToType(ta.value, env, aliases));
-        },
-        visitTypeName: function (tn) {
-            if (tn.value in aliases) {
-                var alias = aliases[tn.value];
+  return n.accept({
+    visitGeneric: function (g) {
+      return new t.Variable(g.value);
+    },
+    visitTypeFunction: function (tf) {
+      return new t.FunctionType(
+        _.map(tf.args, function (v) {
+          return nodeToType(v, env, aliases);
+        }),
+      );
+    },
+    visitTypeArray: function (ta) {
+      return new t.ArrayType(nodeToType(ta.value, env, aliases));
+    },
+    visitTypeName: function (tn) {
+      if (tn.value in aliases) {
+        var alias = aliases[tn.value];
 
-                // Handle parameterized type aliases  
-                if (alias.params && alias.params.length > 0) {
-                    if (tn.args.length !== alias.params.length) {
-                        throw new Error("Type '" + tn.value + "' expects " +
-                            alias.params.length + " arguments but got " + tn.args.length);
-                    }
+        // Handle parameterized type aliases
+        if (alias.params && alias.params.length > 0) {
+          if (tn.args.length !== alias.params.length) {
+            throw new Error(
+              "Type '" +
+                tn.value +
+                "' expects " +
+                alias.params.length +
+                ' arguments but got ' +
+                tn.args.length,
+            );
+          }
 
-                    // Create fresh copy and substitute type arguments  
-                    var freshAlias = alias.body.fresh();
-                    _.forEach(tn.args, function (argNode, i) {
-                        var argType = nodeToType(argNode, env, aliases);
-                        unify(alias.params[i], argType, argNode);
-                    });
-                    return freshAlias;
-                }
-
-                return aliases[tn.value];
-
-            }
-
-            if (!tn.args.length) {
-                switch (tn.value) {
-                    case 'Number':
-                        return new t.NumberType();
-                    case 'String':
-                        return new t.StringType();
-                    case 'Boolean':
-                        return new t.BooleanType();
-                    case 'Unit':
-                        return new t.UnitType();
-                    case 'Any':
-                        return new t.NativeType();
-                }
-            }
-
-            var envType = env[tn.value];
-            if (envType) {
-                if (t.prune(envType) instanceof t.Variable) {
-                    return envType;
-                }
-
-                if (tn.args.length != envType.types.length - 1) {
-                    throw new Error("Type arg lengths differ: '" + tn.value + "' given " + tn.args.length + " but should be " + (envType.types.length - 1));
-                }
-
-                envType = t.prune(envType).fresh();
-                _.forEach(tn.args, function (v, k) {
-                    var argType = nodeToType(v, env, aliases);
-                    unify(envType.types[1 + k], argType, v);
-                });
-                return envType;
-            }
-
-            throw new Error("Can't convert from explicit type: `" + tn.value + "`")
-        },
-        visitTypeObject: function (to) {
-            var keys = Object.keys(to.values);
-            var isTuple = keys.every(function (k, i) { return k == i; });
-
-            if (isTuple) {
-                var types = _.map(to.values, function (v) {
-                    return nodeToType(v, env, aliases);
-                });
-                return new t.TupleType(types);
-            }
-
-            var types = {};
-            _.forEach(to.values, function (v, k) {
-                types[k] = nodeToType(v, env, aliases);
-            });
-            return new t.ObjectType(types);
-        },
-        visitTypeReference: function(tr) {  
-            var innerType = nodeToType(tr.type, env, aliases);  
-            return new t.ReferenceType(innerType);  
+          // Create fresh copy and substitute type arguments
+          var freshAlias = alias.body.fresh();
+          _.forEach(tn.args, function (argNode, i) {
+            var argType = nodeToType(argNode, env, aliases);
+            unify(alias.params[i], argType, argNode);
+          });
+          return freshAlias;
         }
-    });
+
+        return aliases[tn.value];
+      }
+
+      if (!tn.args.length) {
+        switch (tn.value) {
+          case 'Number':
+            return new t.NumberType();
+          case 'String':
+            return new t.StringType();
+          case 'Boolean':
+            return new t.BooleanType();
+          case 'Unit':
+            return new t.UnitType();
+          case 'Any':
+            return new t.NativeType();
+        }
+      }
+
+      var envType = env[tn.value];
+      if (envType) {
+        if (t.prune(envType) instanceof t.Variable) {
+          return envType;
+        }
+
+        if (tn.args.length != envType.types.length - 1) {
+          throw new Error(
+            "Type arg lengths differ: '" +
+              tn.value +
+              "' given " +
+              tn.args.length +
+              ' but should be ' +
+              (envType.types.length - 1),
+          );
+        }
+
+        envType = t.prune(envType).fresh();
+        _.forEach(tn.args, function (v, k) {
+          var argType = nodeToType(v, env, aliases);
+          unify(envType.types[1 + k], argType, v);
+        });
+        return envType;
+      }
+
+      throw new Error("Can't convert from explicit type: `" + tn.value + '`');
+    },
+    visitTypeObject: function (to) {
+      var keys = Object.keys(to.values);
+      var isTuple = keys.every(function (k, i) {
+        return k == i;
+      });
+
+      if (isTuple) {
+        var types = _.map(to.values, function (v) {
+          return nodeToType(v, env, aliases);
+        });
+        return new t.TupleType(types);
+      }
+
+      var types = {};
+      _.forEach(to.values, function (v, k) {
+        types[k] = nodeToType(v, env, aliases);
+      });
+      return new t.ObjectType(types);
+    },
+    visitTypeReference: function (tr) {
+      var innerType = nodeToType(tr.type, env, aliases);
+      return new t.ReferenceType(innerType);
+    },
+  });
 };
 exports.nodeToType = nodeToType;
 
 var functionTypeClassConstraint = function (constraint, env) {
-    return constraint.type;
+  return constraint.type;
 };
 
 var identifierTypeClassConstraint = function (constraint, env) {
-    var typeClassValue = env[constraint.node.value];
-    var typeClass = env[typeClassValue.typeClass];
+  var typeClassValue = env[constraint.node.value];
+  var typeClass = env[typeClassValue.typeClass];
 
-    var instanceTypeClass = typeClass.fresh();
+  var instanceTypeClass = typeClass.fresh();
 
-    // TODO: Remove difference between types with subtypes and types without
-    var types = t.prune(typeClassValue).types;
+  // TODO: Remove difference between types with subtypes and types without
+  var types = t.prune(typeClassValue).types;
 
-    if (!types) {
-        if (typeClass.type.id == typeClassValue.id) {
-            unify(instanceTypeClass.type, constraint.type);
-        }
+  if (!types) {
+    if (typeClass.type.id == typeClassValue.id) {
+      unify(instanceTypeClass.type, constraint.type);
     }
+  }
 
-    _.each(t.prune(typeClassValue).types, function (vt, j) {
-        if (typeClass.type.id != vt.id) return;
+  _.each(t.prune(typeClassValue).types, function (vt, j) {
+    if (typeClass.type.id != vt.id) return;
 
-        unify(instanceTypeClass.type, constraint.type.types[j]);
-    });
+    unify(instanceTypeClass.type, constraint.type.types[j]);
+  });
 
-    return instanceTypeClass;
+  return instanceTypeClass;
 };
 
 // Adds a property, referencing the name of a type-class instance to
 // identifier nodes that are defined on a type-class.
 var solveTypeClassConstraint = function (constraint, env, unsolvedCallback) {
-    var instanceTypeClass;
-    if (constraint.node.func) {
-        instanceTypeClass = functionTypeClassConstraint(constraint, env);
-    } else {
-        instanceTypeClass = identifierTypeClassConstraint(constraint, env);
+  var instanceTypeClass;
+  if (constraint.node.func) {
+    instanceTypeClass = functionTypeClassConstraint(constraint, env);
+  } else {
+    instanceTypeClass = identifierTypeClassConstraint(constraint, env);
+  }
+
+  if (t.prune(instanceTypeClass.type) instanceof t.Variable) {
+    return unsolvedCallback(instanceTypeClass);
+  }
+
+  var solved = _.find(env, function (t, n) {
+    if (
+      !t.typeClassInstance ||
+      t.typeClassInstance.name != instanceTypeClass.name
+    ) {
+      return false;
     }
 
-    if (t.prune(instanceTypeClass.type) instanceof t.Variable) {
-        return unsolvedCallback(instanceTypeClass);
+    try {
+      unify(instanceTypeClass.fresh(), t.typeClassInstance.type.fresh());
+    } catch (e) {
+      return false;
     }
 
-    var solved = _.find(env, function (t, n) {
-        if (!t.typeClassInstance || t.typeClassInstance.name != instanceTypeClass.name) {
-            return false;
-        }
+    constraint.node.typeClassInstance = n;
 
-        try {
-            unify(instanceTypeClass.fresh(), t.typeClassInstance.type.fresh());
-        } catch (e) {
-            return false;
-        }
+    return true;
+  });
 
-        constraint.node.typeClassInstance = n;
+  if (solved) return;
 
-        return true;
-    });
-
-    if (solved) return;
-
-    unsolvedCallback(instanceTypeClass);
+  unsolvedCallback(instanceTypeClass);
 };
 
-var setUpEnv = function(env) {
-    
-    if (!env.$importCache) {  
-        env.$importCache = {};  
-    }
+var setUpEnv = function (env) {
+  if (!env.$importCache) {
+    env.$importCache = {};
+  }
 
-    env.$operators = {
-        binary: {},
-        unary: {}
-    };
-}
+  env.$operators = {
+    binary: {},
+    unary: {},
+  };
+};
 
 // Run inference on an array of AST nodes.
 var typecheck = function (ast, env, aliases, opts) {
-    currentFile = opts.filename;
-    setUpEnv(env)
-    var types = _.map(ast, function (node) {
-        try {
+  currentFile = opts.filename;
+  setUpEnv(env);
+  var types = _.map(ast, function (node) {
+    try {
+      var constraints = [];
+      var type = analyse(node, env, [], aliases, constraints);
+      _.each(constraints, function (constraint) {
+        solveTypeClassConstraint(constraint, env, function (instance) {
+          throw "Couldn't find instance of: " + instance.toString();
+        });
+      });
 
-            var constraints = [];
-            var type = analyse(node, env, [], aliases, constraints);
-            _.each(constraints, function (constraint) {
-                solveTypeClassConstraint(constraint, env, function (instance) {
-                    throw "Couldn't find instance of: " + instance.toString();
-                });
-            });
-
-            return type;
-        } catch (err) {
-            console.log(err)
-            errors.reportError(node.filename, node.lineno, node.column, err);
-        }
-    });
-    return types && types[0];
+      return type;
+    } catch (err) {
+      console.log(err);
+      errors.reportError(node.filename, node.lineno, node.column, err);
+    }
+  });
+  return types && types[0];
 };
 exports.typecheck = typecheck;
-
