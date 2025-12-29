@@ -1,0 +1,19 @@
+
+open Std.Printf
+open Std.List
+open Std.Pipe ((|>))
+open Std.Compare ((==))
+open Std.Arith ((-), (+))
+
+type Tree 'a = Leaf 'a
+  | Branch 'a  (Tree 'a) (Tree 'a)
+
+let genTree = function
+  | 0 = Leaf 0
+  | n = Branch n (genTree (n - 1)) (genTree (n - 1)) 
+
+let main () = 
+  let n = genTree 2 
+  in Printf.println n
+
+
