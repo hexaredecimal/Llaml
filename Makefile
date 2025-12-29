@@ -19,6 +19,9 @@ site:
 extension:
 	cp roy-min.js misc/chrome-extension/
 
+fmt:
+	npx prettier --write "src/**/*.js"
+
 # Tests
 
 lint:
