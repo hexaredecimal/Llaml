@@ -1,0 +1,8 @@
+
+#[extern("JSON.stringify"), export]
+let toStr (a: Any) : String
+
+#[extern("JSON.parse"), export]
+let fromStr (a: String) : Any
+
+
