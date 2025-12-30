@@ -331,7 +331,7 @@ exports.UnitType = UnitType;
 var NativeType = function () {};
 NativeType.prototype = new BaseType();
 NativeType.prototype.name = 'Any';
-NativeType.prototype.fresh = function (nonGeneric, mappings) {
+NativeType.prototype.fresh = function (/*nonGeneric, mappings*/) {
   return new NativeType();
 };
 exports.NativeType = NativeType;
