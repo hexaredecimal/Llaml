@@ -25,7 +25,8 @@ fmt:
 # Tests
 
 lint:
-	./node_modules/.bin/grunt lint
+	npx eslint src/**/*.js --fix
+
 
 test:
 	./node_modules/.bin/grunt jasmine
