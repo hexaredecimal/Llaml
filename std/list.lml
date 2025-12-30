@@ -52,7 +52,7 @@ let nth index list =
 
 
 #[export]
-let (@) index list = nth index list
+let (@) list index = nth index list
 
 #[export]
 let join list =
