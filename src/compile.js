@@ -1,23 +1,24 @@
-var typeinference = require('./typeinference'),
-  loadModule = require('./modules').loadModule,
-  exportType = require('./modules').exportType,
-  types = require('./types'),
-  nodeToType = require('./typeinference').nodeToType,
-  nodes = require('./nodes').nodes,
-  lexer = require('./lexer'),
-  parser = require('../lib/parser').parser,
-  typeparser = require('../lib/typeparser').parser,
-  escodegen = require('escodegen'),
-  _ = require('underscore');
+const typeinference = require('./typeinference');
+const loadModule = require('./modules').loadModule;
+const exportType = require('./modules').exportType;
+const types = require('./types');
+const nodes = require('./nodes').nodes;
+const lexer = require('./lexer');
+const parser = require('../lib/parser').parser;
+const typeparser = require('../lib/typeparser').parser;
+const escodegen = require('escodegen');
+const _ = require('underscore');
+const nodeToType = typeinference.nodeToType;
+const typecheck = typeinference.typecheck;
 
-var typecheck = typeinference.typecheck;
+
 // Assigning the nodes to `parser.yy` allows the grammar to access the nodes from
 // the `yy` namespace.
 parser.yy = typeparser.yy = nodes;
 
 parser.lexer = typeparser.lexer = {
   lex: function () {
-    var token = this.tokens[this.pos] ? this.tokens[this.pos] : ['EOF'];
+    const token = this.tokens[this.pos] ? this.tokens[this.pos] : ['EOF'];
     this.yytext = token[1];
     this.yylineno = token[2];
     this.yycolumn = token[3];
@@ -772,10 +773,10 @@ var compileNodeWithEnvToJsAST = function (n, env, opts) {
       };
     },
     visitMatch: function () {
-      var valuePlaceholder = '__match';
+      const valuePlaceholder = '__match';
 
       // Helper to extract variable bindings from patterns
-      var extractVars = function (pattern, valueExpr, vars) {
+      const extractVars = function (pattern, valueExpr, vars) {
         pattern.accept({
           visitNumber: function () {
             // Literals don't bind variables
@@ -858,7 +859,7 @@ var compileNodeWithEnvToJsAST = function (n, env, opts) {
             });
           },
           visitObject: function () {
-            for (var key in pattern.values) {
+            for (const key in pattern.values) {
               extractVars(
                 pattern.values[key],
                 {
@@ -887,7 +888,7 @@ var compileNodeWithEnvToJsAST = function (n, env, opts) {
 
             // The last element gets the rest of the array via slice
             if (pattern.patterns.length > 0) {
-              var lastPattern = pattern.patterns[pattern.patterns.length - 1];
+              const lastPattern = pattern.patterns[pattern.patterns.length - 1];
               extractVars(
                 lastPattern,
                 {
@@ -945,11 +946,11 @@ var compileNodeWithEnvToJsAST = function (n, env, opts) {
       };
 
       // Helper to build test conditions
-      var buildTest = function (pattern, valueExpr) {
+      const buildTest = function (pattern, valueExpr) {
         return pattern.accept({
           visitNumber: function () {
-            var rawValue = pattern.value.replace(/_/g, '');
-            var numValue;
+            const rawValue = pattern.value.replace(/_/g, '');
+            let numValue;
             if (rawValue.startsWith('0x') || rawValue.startsWith('0X')) {
               numValue = parseInt(rawValue, 16);
             } else if (rawValue.startsWith('0o') || rawValue.startsWith('0O')) {
@@ -1013,9 +1014,9 @@ var compileNodeWithEnvToJsAST = function (n, env, opts) {
             };
 
             // Add checks for nested literal patterns
-            var result = lengthCheck;
+            let result = lengthCheck;
             _.each(pattern.values, function (elemPattern, i) {
-              var elemTest = buildTest(elemPattern, {
+              const elemTest = buildTest(elemPattern, {
                 type: 'MemberExpression',
                 object: valueExpr,
                 property: { type: 'Literal', value: i },
@@ -1045,8 +1046,8 @@ var compileNodeWithEnvToJsAST = function (n, env, opts) {
             );
           },
           visitObject: function () {
-            var propChecks = [];
-            for (var key in pattern.values) {
+            const propChecks = [];
+            for (const key in pattern.values) {
               propChecks.push({
                 type: 'BinaryExpression',
                 operator: 'in',
@@ -1054,7 +1055,7 @@ var compileNodeWithEnvToJsAST = function (n, env, opts) {
                 right: valueExpr,
               });
 
-              var elemTest = buildTest(pattern.values[key], {
+              const elemTest = buildTest(pattern.values[key], {
                 type: 'MemberExpression',
                 object: valueExpr,
                 property: { type: 'Identifier', name: key },
@@ -1110,7 +1111,7 @@ var compileNodeWithEnvToJsAST = function (n, env, opts) {
                 },
               };
 
-              var headTest = buildTest(pattern.args[0], {
+              const headTest = buildTest(pattern.args[0], {
                 type: 'MemberExpression',
                 object: valueExpr,
                 property: { type: 'Literal', value: 0 },
@@ -1132,7 +1133,7 @@ var compileNodeWithEnvToJsAST = function (n, env, opts) {
             return { type: 'Literal', value: true };
           },
           visitListConstPattern: function () {
-            var lengthCheck = {
+            const lengthCheck = {
               type: 'LogicalExpression',
               operator: '&&',
               left: {
@@ -1157,10 +1158,10 @@ var compileNodeWithEnvToJsAST = function (n, env, opts) {
             };
 
             // Add checks for nested literal patterns (only for non-tail elements)
-            var result = lengthCheck;
+            const result = lengthCheck;
             _.each(pattern.patterns.slice(0, -1), function (elemPattern, i) {
               // Only check non-tail elements
-              var elemTest = buildTest(elemPattern, {
+              const elemTest = buildTest(elemPattern, {
                 type: 'MemberExpression',
                 object: valueExpr,
                 property: { type: 'Literal', value: i },
@@ -1192,7 +1193,7 @@ var compileNodeWithEnvToJsAST = function (n, env, opts) {
             }
 
             // Constructor pattern
-            var test = {
+            const test = {
               type: 'BinaryExpression',
               operator: 'instanceof',
               left: valueExpr,
@@ -1201,7 +1202,7 @@ var compileNodeWithEnvToJsAST = function (n, env, opts) {
 
             // Add checks for nested patterns in constructor arguments
             _.each(pattern.vars, function (v, i) {
-              var argTest = buildTest(v, {
+              const argTest = buildTest(v, {
                 type: 'MemberExpression',
                 object: valueExpr,
                 property: { type: 'Identifier', name: '_' + i },
@@ -1221,14 +1222,14 @@ var compileNodeWithEnvToJsAST = function (n, env, opts) {
         });
       };
 
-      var pathConditions = _.map(n.cases, function (c) {
-        var vars = [];
-        var valueExpr = { type: 'Identifier', name: valuePlaceholder };
+      const pathConditions = _.map(n.cases, function (c) {
+        const vars = [];
+        const valueExpr = { type: 'Identifier', name: valuePlaceholder };
 
         extractVars(c.pattern, valueExpr, vars);
-        var test = buildTest(c.pattern, valueExpr);
+        const test = buildTest(c.pattern, valueExpr);
 
-        var body = [];
+        const body = [];
         if (vars.length > 0) {
           body.push({
             type: 'VariableDeclaration',
@@ -1288,7 +1289,7 @@ var compileNodeWithEnvToJsAST = function (n, env, opts) {
     },
     // Call to JavaScript call.
     visitCall: function () {
-      var args = _.map(n.args, compileNode);
+      const args = _.map(n.args, compileNode);
 
       // Regular function call handling
       if (n.typeClassInstance) {
@@ -1298,7 +1299,7 @@ var compileNodeWithEnvToJsAST = function (n, env, opts) {
         });
       }
 
-      var result = compileNode(n.func);
+      let result = compileNode(n.func);
 
       if (n.isEager) {
         return {
@@ -1398,7 +1399,8 @@ var compileNodeWithEnvToJsAST = function (n, env, opts) {
       };
     },
     visitWith: function () {
-      var copyLoop = function (varName) {
+
+      const copyLoop = function (varName) {
         return {
           type: 'ForInStatement',
           left: { type: 'Identifier', name: '__n__' },
@@ -1429,7 +1431,7 @@ var compileNodeWithEnvToJsAST = function (n, env, opts) {
           },
         };
       };
-      var funcBody = [];
+      const funcBody = [];
       funcBody.push({
         type: 'VariableDeclaration',
         kind: 'var',
@@ -1492,8 +1494,8 @@ var compileNodeWithEnvToJsAST = function (n, env, opts) {
       };
     },
     visitNumber: function () {
-      var rawValue = n.value.replace(/_/g, '');
-      var numValue;
+      const rawValue = n.value.replace(/_/g, '');
+      let numValue;
       if (rawValue.startsWith('0x') || rawValue.startsWith('0X')) {
         numValue = parseInt(rawValue, 16);
       } else if (rawValue.startsWith('0o') || rawValue.startsWith('0O')) {
@@ -1545,11 +1547,10 @@ var compileNodeWithEnvToJsAST = function (n, env, opts) {
       };
     },
     visitObject: function () {
-      var cleanedKey,
-        key,
-        pairs = [];
+      let cleanedKey;
+      const pairs = [];
 
-      for (key in n.values) {
+      for (const key in n.values) {
         if (key[0] === "'" || key[0] === '"') {
           cleanedKey = String.prototype.slice.call(key, 1, key.length - 1);
         } else {
@@ -1585,7 +1586,7 @@ var compileNodeWithEnvToJsAST = function (n, env, opts) {
     }
     result.leadingComments = _.map(n.comments, function (c) {
       if (c.value.startsWith('/*')) {
-        var inner = c.value.slice(2, -2);
+        const inner = c.value.slice(2, -2);
         return {
           type: 'Block',
           value: inner,
@@ -1601,8 +1602,8 @@ var compileNodeWithEnvToJsAST = function (n, env, opts) {
   return result;
 };
 exports.compileNodeWithEnvToJsAST = compileNodeWithEnvToJsAST;
-var compileNodeWithEnv = function (n, env, opts) {
-  var ast = compileNodeWithEnvToJsAST(n, env, opts);
+const compileNodeWithEnv = function (n, env, opts) {
+  const ast = compileNodeWithEnvToJsAST(n, env, opts);
   if (typeof ast === 'string') {
     //        console.warn("Got AST already transformed into string: ", ast);
     return ast;
@@ -1610,7 +1611,7 @@ var compileNodeWithEnv = function (n, env, opts) {
     return '';
   } else {
     ast = liftComments(ast);
-    var generated = escodegen.generate(ensureJsASTStatement(ast), {
+    const generated = escodegen.generate(ensureJsASTStatement(ast), {
       comment: true,
     });
     return generated;
@@ -1618,7 +1619,7 @@ var compileNodeWithEnv = function (n, env, opts) {
 };
 exports.compileNodeWithEnv = compileNodeWithEnv;
 
-var compile = function (source, env, aliases, opts) {
+const compile = function (source, env, aliases, opts) {
   if (!env) {
     env = {};
   }
@@ -1631,18 +1632,18 @@ var compile = function (source, env, aliases, opts) {
   env.filename = parser.yy.filename;
 
   // Parse the file to an AST.
-  var tokens = lexer.tokenise(source, { filename: opts.filename });
-  var ast = parser.parse(tokens);
+  const tokens = lexer.tokenise(source, { filename: opts.filename });
+  const ast = parser.parse(tokens);
 
   // Typecheck the AST. Any type errors will throw an exception.
-  var resultType = typecheck(ast.body, env, aliases, opts);
+  const resultType = typecheck(ast.body, env, aliases, opts);
 
   // Export types
   ast.body = _.map(ast.body, function (n) {
     if (n.annotations && n.annotations.length > 0) {
-      var shouldExport = false;
-      for (var i = 0; i < n.annotations.length; i++) {
-        var ann = n.annotations[i];
+      const shouldExport = false;
+      for (let i = 0; i < n.annotations.length; i++) {
+        const ann = n.annotations[i];
 
         if (ann instanceof nodes.IdAnnotation) {
           if (ann.name === 'export') {
@@ -1664,7 +1665,7 @@ var compile = function (source, env, aliases, opts) {
             }
 
             // Find the innermost curried function by traversing down
-            var currentFunc = n;
+            let currentFunc = n;
             while (
               currentFunc.body &&
               currentFunc.body.length === 1 &&
@@ -1683,8 +1684,8 @@ var compile = function (source, env, aliases, opts) {
               );
             }
 
-            var missingTypes = [];
-            var funcChain = currentFunc;
+            const missingTypes = [];
+            let funcChain = currentFunc;
             while (funcChain) {
               _.each(funcChain.args, function (arg) {
                 if (!arg.type) {
@@ -1705,7 +1706,7 @@ var compile = function (source, env, aliases, opts) {
               );
             }
 
-            var outermostFunc = currentFunc;
+            let outermostFunc = currentFunc;
             while (outermostFunc.parent) {
               outermostFunc = outermostFunc.parent;
             }
@@ -1720,10 +1721,10 @@ var compile = function (source, env, aliases, opts) {
               );
             }
 
-            var externPath = ann.args[0].replace(/^`|`$/g, '');
+            const externPath = ann.args[0].replace(/^`|`$/g, '');
 
-            var allArgs = [];
-            var funcChain = currentFunc;
+            const allArgs = [];
+            funcChain = currentFunc;
             while (funcChain) {
               _.each(funcChain.args, function (arg) {
                 allArgs.unshift(new nodes.Identifier(arg.name));
@@ -1731,7 +1732,7 @@ var compile = function (source, env, aliases, opts) {
               funcChain = funcChain.parent;
             }
 
-            var externCall = new nodes.Call(
+            const externCall = new nodes.Call(
               new nodes.Identifier(externPath),
               allArgs,
             );
@@ -1749,7 +1750,7 @@ var compile = function (source, env, aliases, opts) {
     return n;
   });
 
-  var jsAst = liftComments(compileNodeWithEnvToJsAST(ast, env, opts));
+  const jsAst = liftComments(compileNodeWithEnvToJsAST(ast, env, opts));
 
   if (opts.strict) {
     jsAst.body.unshift({
