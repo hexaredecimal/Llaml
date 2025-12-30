@@ -1,11 +1,11 @@
 open Std.Printf
 open Std.List ((:), map)
 open Std.Pipe ((|>))
+open Std.Arith ((*))
 
 let merge la ra =
   when (la, ra) is
     | ([], []) = []
-    | ([a], [b]) = a:b:[]
     | (h:r, c:t) = h:c:merge r t
 
 let main () = 

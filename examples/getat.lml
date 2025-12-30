@@ -1,0 +1,12 @@
+open Std.Printf
+open Std.List ((@))
+open Std.Pipe ((|>))
+open Std.Arith ((*))
+
+let getAt n list = list @ n
+
+let main () = 
+  [1,2,3,4,5]
+    |> getAt 2
+    |> Printf.println
+

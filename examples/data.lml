@@ -1,7 +1,7 @@
 open Std.Adt.Option (Option)
 open Std.Printf
 
-let none = None ()
+let none = None
 let printSomething m = 
   when m is
     | Some x = Printf.println x
