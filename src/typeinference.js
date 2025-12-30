@@ -6,17 +6,15 @@
 // Cardelli's [Modula-2 code](http://bit.ly/Hjpvb). Wow.
 
 // Type variable and built-in types are defined in the `types` module.
-var t = require('./types'),
-  n = require('./nodes').nodes,
-  lexer = require('./lexer'),
-  parser = require('../lib/parser').parser,
-  _ = require('underscore'),
-  getFreeVariables = require('./freeVariables').getFreeVariables,
-  stronglyConnectedComponents = require('./tarjan').stronglyConnectedComponents;
+const t = require('./types');
+const n = require('./nodes').nodes;
+const _ = require('underscore');
+const getFreeVariables = require('./freeVariables').getFreeVariables;
+const stronglyConnectedComponents = require('./tarjan').stronglyConnectedComponents;
 
-var errors = require('./errors.js');
+const errors = require('./errors.js');
+const process = require('process');
 
-var currentFile = null;
 // ### Unification
 //
 // This is the process of finding a type that satisfies some given constraints.
@@ -235,7 +233,6 @@ var analyseFunction = function (
 
   var resultType;
 
-  var retType = functionDecl.type;
   let parent = functionDecl;
   if (
     (functionDecl.name == undefined || functionDecl.name == null) &&
@@ -616,6 +613,7 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
         const moduleEnv = env.$importCache[modulePath].env;
         let exportedSymbols = getExports(moduleAst.body, moduleEnv);
 
+        const moduleName = node.path[node.path.length - 1];
         if (node.liftedIds && node.liftedIds.length > 0) {
           // Selective import: open Std.IO.{print, println}
           _.each(node.liftedIds, function (liftedId) {
@@ -641,12 +639,10 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
             }
           });
 
-          var moduleName = node.path[node.path.length - 1];
           if (env[moduleName] instanceof t.ObjectType) {
             delete env[moduleName];
           }
         } else {
-          var moduleName = node.path[node.path.length - 1];
           env[moduleName] = new t.ObjectType(exportedSymbols);
         }
         return new t.UnitType();
@@ -730,7 +726,7 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
           }
         });
       } else {
-        var moduleName = node.path[node.path.length - 1];
+        const moduleName = node.path[node.path.length - 1];
         env[moduleName] = new t.ObjectType(exportedSymbols);
 
         _.each(exportedSymbols, function (symbolType, symbolName) {
@@ -760,7 +756,7 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
       let funcType = funcTypeAndNonGenerics[0];
 
       if (node.type) {
-        var returnTypeAnnotation = nodeToType(node.type, env, aliases);
+        const returnTypeAnnotation = nodeToType(node.type, env, aliases);
 
         unify(
           funcType.types[funcType.types.length - 1],
@@ -778,8 +774,7 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
         const tableKey =
           argCount === 1 ? 'unary' : argCount === 2 ? 'binary' : null;
 
-        if (!tableKey) {
-        } else if (!newEnv.$operators[tableKey][node.name.g]) {
+        if (tableKey && !newEnv.$operators[tableKey][node.name.g]) {
           newEnv.$operators[tableKey][node.name.g] = [];
           newEnv.$operators[tableKey][node.name.g].push(funcType);
         } else newEnv.$operators[tableKey][node.name.g].push(funcType);
@@ -796,7 +791,7 @@ var analyse = function (node, env, nonGeneric, aliases, constraints) {
         functionConstraints,
       );
       if (node.type) {
-        var returnTypeAnnotation = nodeToType(node.type, env, aliases);
+        const returnTypeAnnotation = nodeToType(node.type, env, aliases);
         if (functionType instanceof t.FunctionType) {
           unify(
             returnTypeAnnotation,
