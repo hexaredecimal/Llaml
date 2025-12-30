@@ -1,8 +1,9 @@
-var _ = require('underscore');
+const _ = require('underscore');
+const process = require('process');
 
-var getFileContents = function (filename) {
-  var fs = require('fs'),
-    filenames,
+const getFileContents = function (filename) {
+  const fs = require('fs')
+  let filenames,
     foundFilename;
 
   filenames = /\..+$/.test(filename) // if an extension is specified,
@@ -25,9 +26,9 @@ var getFileContents = function (filename) {
 const printErr = function (filename, line, column, message, die = true) {
   console.error(filename + ':' + (line + 1) + ':' + column + ' : ' + message);
   if (filename != 'stdin') {
-    var code = getFileContents(filename);
-    var splits = code.split('\n');
-    var snippet = '';
+    const code = getFileContents(filename);
+    const splits = code.split('\n');
+    let snippet = '';
     if (line <= 1 || line == splits.length - 1) {
       snippet = code.split('\n')[line];
       console.error((line === 0 ? 1 : line) + ' | ', snippet);
@@ -50,12 +51,12 @@ const printErr = function (filename, line, column, message, die = true) {
   }
 };
 
-var reportError = function (filename, line, column, message) {
+const reportError = function (filename, line, column, message) {
   printErr(filename, line, column, message, true);
 };
 exports.reportError = reportError;
 
-var reportWarning = function (filename, line, column, message) {
+const reportWarning = function (filename, line, column, message) {
   printErr(filename, line, column, message, false);
 };
 exports.reportWarning = reportWarning;
